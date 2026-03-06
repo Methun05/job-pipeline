@@ -1,33 +1,29 @@
 """
-Groq-powered content generation.
+Gemini-powered content generation.
 One API call per company (Track A) or job posting (Track B).
 All tasks batched into a single prompt per record.
 """
 import json
 import re
 import requests
-from groq import Groq
-from pipeline.config import GROQ_API_KEY, GROQ_MODEL, PROFILE, HTTP_TIMEOUT
+import google.generativeai as genai
+from pipeline.config import GEMINI_API_KEY, GEMINI_MODEL, PROFILE, HTTP_TIMEOUT
 from bs4 import BeautifulSoup
 
-_client = None
+_model = None
 
-def get_groq():
-    global _client
-    if _client is None:
-        _client = Groq(api_key=GROQ_API_KEY)
-    return _client
+def get_model():
+    global _model
+    if _model is None:
+        genai.configure(api_key=GEMINI_API_KEY)
+        _model = genai.GenerativeModel(GEMINI_MODEL)
+    return _model
 
 
-def _call_groq(prompt: str) -> dict:
-    """Call Groq, parse JSON response. Raises on failure."""
-    resp = get_groq().chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_tokens=2048,
-    )
-    text = resp.choices[0].message.content.strip()
+def _call_gemini(prompt: str) -> dict:
+    """Call Gemini, parse JSON response. Raises on failure."""
+    resp = get_model().generate_content(prompt)
+    text = resp.text.strip()
     # Extract JSON from response (handle markdown code blocks)
     json_match = re.search(r'```(?:json)?\s*([\s\S]+?)\s*```', text)
     if json_match:
@@ -92,7 +88,7 @@ Generate a JSON response with these exact keys:
 
 Return only the JSON object, no other text."""
 
-    return _call_groq(prompt)
+    return _call_gemini(prompt)
 
 
 # ── Track A: Extract funding from RSS article ─────────────────────────────────
@@ -126,7 +122,7 @@ Rules:
 - Only return the JSON object, no other text."""
 
     try:
-        result = _call_groq(prompt)
+        result = _call_gemini(prompt)
         confidence = float(result.get("confidence", 0))
         if confidence < 0.7:
             return None
@@ -202,7 +198,7 @@ Return a JSON object with these exact keys:
 
 Return only the JSON object, no other text."""
 
-    return _call_groq(prompt)
+    return _call_gemini(prompt)
 
 
 # ── Follow-up message generation ───────────────────────────────────────────────
@@ -235,12 +231,7 @@ Write a short follow-up message (under 250 characters) that:
 Return only the message text, no JSON, no quotes."""
 
     try:
-        resp = get_groq().chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=300,
-        )
-        return resp.choices[0].message.content.strip()
+        resp = get_model().generate_content(prompt)
+        return resp.text.strip()
     except Exception as e:
         raise RuntimeError(f"Follow-up generation failed: {e}")

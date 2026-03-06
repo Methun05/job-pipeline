@@ -1,5 +1,5 @@
 """
-Central config: profile data injected into every Groq prompt,
+Central config: profile data injected into every Gemini prompt,
 plus pipeline constants.
 """
 import os
@@ -10,12 +10,13 @@ load_dotenv()
 # ── API Keys ──────────────────────────────────────────────────────────────────
 SUPABASE_URL         = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
-GROQ_API_KEY         = os.getenv("GROQ_API_KEY", "")
+GEMINI_API_KEY       = os.getenv("GEMINI_API_KEY", "")
 APOLLO_API_KEY       = os.getenv("APOLLO_API_KEY", "")
 CRYPTORANK_API_KEY   = os.getenv("CRYPTORANK_API_KEY", "")
+WEB3CAREER_API_KEY   = os.getenv("WEB3CAREER_API_KEY", "")
 
-# ── Groq model ────────────────────────────────────────────────────────────────
-GROQ_MODEL = "llama-3.3-70b-versatile"
+# ── Gemini model ──────────────────────────────────────────────────────────────
+GEMINI_MODEL = "gemini-1.5-flash"
 
 # ── My profile (injected into every generation prompt) ────────────────────────
 PROFILE = {
