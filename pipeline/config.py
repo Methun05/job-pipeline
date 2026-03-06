@@ -16,7 +16,7 @@ CRYPTORANK_API_KEY   = os.getenv("CRYPTORANK_API_KEY", "")
 WEB3CAREER_API_KEY   = os.getenv("WEB3CAREER_API_KEY", "")
 
 # ── Gemini model ──────────────────────────────────────────────────────────────
-GEMINI_MODEL = "gemini-1.5-flash"
+GEMINI_MODEL = "gemini-2.0-flash"
 
 # ── My profile (injected into every generation prompt) ────────────────────────
 PROFILE = {

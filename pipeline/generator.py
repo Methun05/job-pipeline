@@ -6,23 +6,25 @@ All tasks batched into a single prompt per record.
 import json
 import re
 import requests
-import google.generativeai as genai
+from google import genai
 from pipeline.config import GEMINI_API_KEY, GEMINI_MODEL, PROFILE, HTTP_TIMEOUT
 from bs4 import BeautifulSoup
 
-_model = None
+_client = None
 
-def get_model():
-    global _model
-    if _model is None:
-        genai.configure(api_key=GEMINI_API_KEY)
-        _model = genai.GenerativeModel(GEMINI_MODEL)
-    return _model
+def get_client():
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=GEMINI_API_KEY)
+    return _client
 
 
 def _call_gemini(prompt: str) -> dict:
     """Call Gemini, parse JSON response. Raises on failure."""
-    resp = get_model().generate_content(prompt)
+    resp = get_client().models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
+    )
     text = resp.text.strip()
     # Extract JSON from response (handle markdown code blocks)
     json_match = re.search(r'```(?:json)?\s*([\s\S]+?)\s*```', text)
@@ -231,7 +233,10 @@ Write a short follow-up message (under 250 characters) that:
 Return only the message text, no JSON, no quotes."""
 
     try:
-        resp = get_model().generate_content(prompt)
+        resp = get_client().models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+        )
         return resp.text.strip()
     except Exception as e:
         raise RuntimeError(f"Follow-up generation failed: {e}")
