@@ -2,7 +2,6 @@
 Web3.career API — crypto/web3 jobs.
 API: https://web3.career/api/v1?token=TOKEN
 Note: apply_url must be used as-is (no extra params) per API terms.
-Array starts at index 2.
 """
 import requests
 from datetime import datetime, timezone, timedelta
@@ -34,8 +33,8 @@ def fetch() -> list[dict]:
     except Exception as e:
         raise RuntimeError(f"Web3.career fetch failed: {e}")
 
-    # Array starts at index 2 per API docs
-    jobs = data[2] if isinstance(data, list) and len(data) > 2 else []
+    # API returns a flat array of job dicts
+    jobs = data if isinstance(data, list) else []
 
     for item in jobs:
         try:
@@ -50,7 +49,15 @@ def fetch() -> list[dict]:
                 date_str = item.get("date", "")
                 if not date_str:
                     continue
-                posted = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                try:
+                    posted = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                except ValueError:
+                    # Handle format like "Thu, 5 Mar 2026"
+                    from email.utils import parsedate_to_datetime
+                    try:
+                        posted = parsedate_to_datetime(date_str)
+                    except Exception:
+                        continue
                 if posted.tzinfo is None:
                     posted = posted.replace(tzinfo=timezone.utc)
 
