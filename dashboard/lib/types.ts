@@ -50,6 +50,7 @@ export interface FundedLead {
   follow_up_generated: boolean;
   notes: string | null;
   created_at: string;
+  raw_data: { key?: string; funds?: string[]; symbol?: string; country?: string } | null;
   // Joined
   companies?: Company;
   contacts?: Contact;

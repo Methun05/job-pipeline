@@ -65,6 +65,8 @@ export default function FundedCompanyRow({
     ? (company.website.startsWith("http") ? company.website : "https://" + company.website)
     : company?.domain
     ? "https://" + company.domain
+    : lead.source === "cryptorank" && lead.raw_data?.key
+    ? `https://cryptorank.io/ico/${lead.raw_data.key}`
     : null;
 
   const companyLinkedin = company?.linkedin_url || null;
@@ -118,7 +120,7 @@ export default function FundedCompanyRow({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-zinc-600 hover:text-zinc-300 shrink-0"
-                title="Company website"
+                title={lead.source === "cryptorank" && !company?.website && !company?.domain ? "View on CryptoRank" : "Company website"}
               >
                 <Globe className="w-3.5 h-3.5" />
               </a>
