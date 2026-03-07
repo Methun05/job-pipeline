@@ -41,6 +41,7 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
     titles = _titles_for_size(employee_count)
 
     payload = {
+        "api_key":       APOLLO_API_KEY,
         "person_titles": titles,
         "page":          1,
         "per_page":      1,
@@ -113,6 +114,7 @@ def reveal_email(apollo_person_id: str) -> str | None:
         resp = requests.post(
             f"{BASE_URL}/people/match",
             json={
+                "api_key":                 APOLLO_API_KEY,
                 "id":                      apollo_person_id,
                 "reveal_personal_emails":  False,
                 "reveal_phone_number":     False,
