@@ -36,20 +36,19 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
     if not APOLLO_API_KEY:
         return None
 
-    # Skip if no domain — name-only search is too unreliable, returns wrong people
-    if not domain:
-        return None
-
     time.sleep(1.2)  # stay under 50 req/min rate limit
 
     titles = _titles_for_size(employee_count)
 
     payload = {
-        "person_titles":            titles,
-        "q_organization_domains":   [domain],
-        "page":                     1,
-        "per_page":                 1,
+        "person_titles": titles,
+        "page":          1,
+        "per_page":      1,
     }
+    if domain:
+        payload["q_organization_domains"] = [domain]
+    else:
+        payload["q_organization_name"] = company_name
 
     try:
         resp = requests.post(
