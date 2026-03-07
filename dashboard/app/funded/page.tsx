@@ -1,36 +1,22 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { RefreshCw, TrendingUp, Building2 } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { FundedLead, FundedStatus, PipelineRun } from "@/lib/types";
 import StatsBar from "@/components/StatsBar";
 import PipelineStatus from "@/components/PipelineStatus";
 import ActivityChart from "@/components/ActivityChart";
-import FundedCompanyCard from "@/components/FundedCompanyCard";
+import FundedCompanyRow, { STATUS_OPTIONS } from "@/components/FundedCompanyCard";
 import Navigation from "@/components/Navigation";
 
-type Section = "pending" | "followup" | "done";
-
-function SectionHeader({ title, count, color }: { title: string; count: number; color: string }) {
-  return (
-    <div className={`flex items-center gap-2 mb-3`}>
-      <span className={`w-2 h-2 rounded-full ${color}`} />
-      <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide">{title}</h2>
-      <span className="ml-auto bg-zinc-800 text-zinc-500 text-xs px-2 py-0.5 rounded-full">{count}</span>
-    </div>
-  );
-}
-
-const DONE_STATUSES: FundedStatus[] = ["connected", "replied", "interview", "closed", "skipped", "cant_find"];
-const ACTIVE_STATUSES: FundedStatus[] = ["new", "connection_sent"];
-
 export default function FundedPage() {
-  const [leads, setLeads]         = useState<FundedLead[]>([]);
-  const [lastRun, setLastRun]     = useState<PipelineRun | null>(null);
-  const [credits, setCredits]     = useState<number | null>(null);
-  const [loading, setLoading]     = useState(true);
+  const [leads, setLeads]           = useState<FundedLead[]>([]);
+  const [lastRun, setLastRun]       = useState<PipelineRun | null>(null);
+  const [credits, setCredits]       = useState<number | null>(null);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("active");
 
   async function load(showSpinner = false) {
     if (showSpinner) setRefreshing(true);
@@ -38,9 +24,8 @@ export default function FundedPage() {
       supabase
         .from("funded_leads")
         .select(`*, companies(*), contacts(*)`)
-        .not("status", "in", '("closed","skipped")')
         .order("created_at", { ascending: false })
-        .limit(200),
+        .limit(300),
       supabase
         .from("pipeline_runs")
         .select("*")
@@ -66,22 +51,24 @@ export default function FundedPage() {
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status } : l));
   }
 
-  const pending  = leads.filter(l => ACTIVE_STATUSES.includes(l.status) && !l.follow_up_generated);
-  const followUp = leads.filter(l => l.follow_up_generated && ACTIVE_STATUSES.includes(l.status));
-  const done     = leads.filter(l => DONE_STATUSES.includes(l.status));
+  const ACTIVE_STATUSES: FundedStatus[] = ["new", "connection_sent"];
+
+  const filtered = useMemo(() => {
+    if (statusFilter === "active") return leads.filter(l => ACTIVE_STATUSES.includes(l.status));
+    if (statusFilter === "all")    return leads;
+    return leads.filter(l => l.status === statusFilter);
+  }, [leads, statusFilter]);
 
   const stats = {
-    newToday:       leads.filter(l => {
+    newToday: leads.filter(l => {
       const d = new Date(l.created_at);
-      const now = new Date();
-      return d.toDateString() === now.toDateString();
+      return d.toDateString() === new Date().toDateString();
     }).length,
     totalContacted: leads.filter(l => l.status !== "new").length,
     totalReplies:   leads.filter(l => ["replied", "interview"].includes(l.status)).length,
     totalApplied:   0,
   };
 
-  // Chart data — last 7 days
   const chartData = useMemo(() => {
     const days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
@@ -89,7 +76,7 @@ export default function FundedPage() {
       return d.toISOString().slice(0, 10);
     });
     return days.map(date => ({
-      date: date.slice(5),
+      date:   date.slice(5),
       funded: leads.filter(l => l.created_at.slice(0, 10) === date).length,
       jobs:   0,
     }));
@@ -131,44 +118,53 @@ export default function FundedPage() {
         <StatsBar stats={stats} />
         <ActivityChart data={chartData} />
 
-        {/* Pending */}
-        <section>
-          <SectionHeader title="Pending Action" count={pending.length} color="bg-blue-500" />
-          {pending.length === 0 ? (
-            <p className="text-sm text-zinc-600 text-center py-8">
-              No pending companies. Pipeline runs daily at 8 AM IST.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {pending.map(lead => (
-                <FundedCompanyCard key={lead.id} lead={lead} onStatusChange={handleStatusChange} />
-              ))}
-            </div>
-          )}
-        </section>
+        {/* Filter bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {[
+            { value: "active", label: "Active" },
+            { value: "all",    label: "All" },
+            ...STATUS_OPTIONS.map(o => ({ value: o.value, label: o.label })),
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setStatusFilter(opt.value)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                statusFilter === opt.value
+                  ? "bg-zinc-700 text-zinc-100"
+                  : "bg-zinc-800/60 text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+          <span className="ml-auto text-xs text-zinc-500">{filtered.length} companies</span>
+        </div>
 
-        {/* Follow Up Needed */}
-        {followUp.length > 0 && (
-          <section>
-            <SectionHeader title="Follow Up Needed" count={followUp.length} color="bg-amber-500" />
-            <div className="space-y-3">
-              {followUp.map(lead => (
-                <FundedCompanyCard key={lead.id} lead={lead} onStatusChange={handleStatusChange} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Done */}
-        {done.length > 0 && (
-          <section>
-            <SectionHeader title="Done" count={done.length} color="bg-zinc-600" />
-            <div className="space-y-3">
-              {done.map(lead => (
-                <FundedCompanyCard key={lead.id} lead={lead} onStatusChange={handleStatusChange} />
-              ))}
-            </div>
-          </section>
+        {/* Table */}
+        {filtered.length === 0 ? (
+          <p className="text-sm text-zinc-600 text-center py-12">
+            No companies in this filter. Pipeline runs daily at 8 AM IST.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-zinc-800">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-zinc-800 bg-zinc-900/80">
+                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Company</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Funding</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Date</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Contact</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Status</th>
+                  <th className="px-4 py-3 w-10" />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(lead => (
+                  <FundedCompanyRow key={lead.id} lead={lead} onStatusChange={handleStatusChange} />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
