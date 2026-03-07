@@ -28,7 +28,7 @@ from pipeline.config import (
 
 from pipeline.fetchers import (
     crypto_rss, techcrunch_rss, eu_startups_rss,
-    remoteok, remotive, wwr_rss, web3career, cryptojobslist_rss,
+    web3career, cryptojobslist_rss, cryptocurrencyjobs_rss,
 )
 
 
@@ -388,11 +388,9 @@ def main():
     raw_jobs = []
 
     track_b_fetchers = [
-        ("remoteok",          remoteok.fetch),
-        ("remotive",          remotive.fetch),
-        ("wwr",               wwr_rss.fetch),
-        ("web3career",        web3career.fetch),
-        ("cryptojobslist",    cryptojobslist_rss.fetch),
+        ("web3career",          web3career.fetch),
+        ("cryptojobslist",      cryptojobslist_rss.fetch),
+        ("cryptocurrencyjobs",  cryptocurrencyjobs_rss.fetch),
     ]
 
     for name, fetcher_fn in track_b_fetchers:
