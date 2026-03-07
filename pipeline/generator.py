@@ -35,7 +35,11 @@ def _call_gemini(prompt: str) -> dict:
                 text = json_match.group(1)
             return json.loads(text)
         except Exception as e:
-            if "429" in str(e) and attempt == 0:
+            err = str(e)
+            if "429" in err:
+                # Daily quota exhausted — no point retrying, fail fast
+                if "PerDay" in err or "per_day" in err.lower() or attempt > 0:
+                    raise
                 print("[Gemini] 429 rate limit — waiting 60s before retry...")
                 time.sleep(60)
                 continue
