@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { FundedLead, FundedStatus, PipelineRun } from "@/lib/types";
 import StatsBar from "@/components/StatsBar";
@@ -10,13 +10,21 @@ import ActivityChart from "@/components/ActivityChart";
 import FundedCompanyRow, { STATUS_OPTIONS } from "@/components/FundedCompanyCard";
 import Navigation from "@/components/Navigation";
 
+// Outside component — not recreated on every render
+const ACTIVE_STATUSES: FundedStatus[] = ["new", "connection_sent"];
+
+type SortKey = "funding" | "date";
+type SortDir = "asc" | "desc";
+
 export default function FundedPage() {
-  const [leads, setLeads]           = useState<FundedLead[]>([]);
-  const [lastRun, setLastRun]       = useState<PipelineRun | null>(null);
-  const [credits, setCredits]       = useState<number | null>(null);
-  const [loading, setLoading]       = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [leads, setLeads]               = useState<FundedLead[]>([]);
+  const [lastRun, setLastRun]           = useState<PipelineRun | null>(null);
+  const [credits, setCredits]           = useState<number | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("active");
+  const [sortKey, setSortKey]           = useState<SortKey>("date");
+  const [sortDir, setSortDir]           = useState<SortDir>("desc");
 
   async function load(showSpinner = false) {
     if (showSpinner) setRefreshing(true);
@@ -51,18 +59,34 @@ export default function FundedPage() {
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status } : l));
   }
 
-  const ACTIVE_STATUSES: FundedStatus[] = ["new", "connection_sent"];
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  }
 
   const filtered = useMemo(() => {
-    if (statusFilter === "active") return leads.filter(l => ACTIVE_STATUSES.includes(l.status));
-    if (statusFilter === "all")    return leads;
-    return leads.filter(l => l.status === statusFilter);
-  }, [leads, statusFilter]);
+    let rows = leads;
+    if (statusFilter === "active") rows = leads.filter(l => ACTIVE_STATUSES.includes(l.status));
+    else if (statusFilter !== "all") rows = leads.filter(l => l.status === statusFilter);
+
+    return [...rows].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "funding") {
+        cmp = (a.funding_amount ?? 0) - (b.funding_amount ?? 0);
+      } else {
+        cmp = (a.announced_date ?? "").localeCompare(b.announced_date ?? "");
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [leads, statusFilter, sortKey, sortDir]);
 
   const stats = {
     newToday: leads.filter(l => {
-      const d = new Date(l.created_at);
-      return d.toDateString() === new Date().toDateString();
+      return new Date(l.created_at).toDateString() === new Date().toDateString();
     }).length,
     totalContacted: leads.filter(l => l.status !== "new").length,
     totalReplies:   leads.filter(l => ["replied", "interview"].includes(l.status)).length,
@@ -78,9 +102,15 @@ export default function FundedPage() {
     return days.map(date => ({
       date:   date.slice(5),
       funded: leads.filter(l => l.created_at.slice(0, 10) === date).length,
-      jobs:   0,
     }));
   }, [leads]);
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40" />;
+    return sortDir === "asc"
+      ? <ArrowUp className="w-3 h-3 ml-1 text-zinc-300" />
+      : <ArrowDown className="w-3 h-3 ml-1 text-zinc-300" />;
+  }
 
   if (loading) {
     return (
@@ -150,11 +180,27 @@ export default function FundedPage() {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-900/80">
-                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Company</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Funding</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Date</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Contact</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Status</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+                    Company
+                  </th>
+                  <th
+                    className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide cursor-pointer select-none hover:text-zinc-200 transition-colors"
+                    onClick={() => toggleSort("funding")}
+                  >
+                    <span className="flex items-center">Funding <SortIcon col="funding" /></span>
+                  </th>
+                  <th
+                    className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide cursor-pointer select-none hover:text-zinc-200 transition-colors"
+                    onClick={() => toggleSort("date")}
+                  >
+                    <span className="flex items-center">Date <SortIcon col="date" /></span>
+                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+                    Contact
+                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+                    Status
+                  </th>
                   <th className="px-4 py-3 w-10" />
                 </tr>
               </thead>

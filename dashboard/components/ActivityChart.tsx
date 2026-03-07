@@ -4,12 +4,13 @@ import {
 } from "recharts";
 
 interface DayData {
-  date:       string;
-  funded:     number;
-  jobs:       number;
+  date:   string;
+  funded: number;
+  jobs?:  number;
 }
 
 export default function ActivityChart({ data }: { data: DayData[] }) {
+  const hasJobs = data.some(d => (d.jobs ?? 0) > 0);
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-4">
       <p className="text-sm font-semibold text-zinc-300 mb-4">Weekly Activity</p>
@@ -39,16 +40,18 @@ export default function ActivityChart({ data }: { data: DayData[] }) {
             cursor={{ fill: "#27272a" }}
           />
           <Bar dataKey="funded" name="Funded"    fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={24} />
-          <Bar dataKey="jobs"   name="Job Posts" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={24} />
+          {hasJobs && <Bar dataKey="jobs" name="Job Posts" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={24} />}
         </BarChart>
       </ResponsiveContainer>
       <div className="flex gap-4 mt-2 justify-center">
         <span className="flex items-center gap-1.5 text-xs text-zinc-500">
           <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" /> Funded companies
         </span>
-        <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-          <span className="w-2.5 h-2.5 rounded-full bg-sky-500" /> Job postings
-        </span>
+        {hasJobs && (
+          <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+            <span className="w-2.5 h-2.5 rounded-full bg-sky-500" /> Job postings
+          </span>
+        )}
       </div>
     </div>
   );

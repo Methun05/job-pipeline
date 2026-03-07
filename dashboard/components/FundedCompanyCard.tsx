@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { format } from "date-fns";
-import { ExternalLink, ChevronDown, ChevronUp, Mail } from "lucide-react";
+import { ExternalLink, ChevronDown, ChevronUp, Mail, Globe } from "lucide-react";
 import { Button, Textarea } from "./ui";
 import CopyButton from "./CopyButton";
 import type { FundedLead, FundedStatus } from "@/lib/types";
@@ -48,8 +48,9 @@ export default function FundedCompanyRow({
   const [expanded, setExpanded]             = useState(false);
   const [emailLoading, setEmailLoading]     = useState(false);
   const [emailResult, setEmailResult]       = useState<string | null>(lead.contacts?.email || null);
+  const [emailError, setEmailError]         = useState<string | null>(null);
   const [notes, setNotes]                   = useState(lead.notes || "");
-  const [saving, setSaving]                 = useState(false);
+  const [saveState, setSaveState]           = useState<"idle" | "saving" | "saved">("idle");
   const [creditsConfirm, setCreditsConfirm] = useState(false);
 
   const company    = lead.companies;
@@ -59,6 +60,12 @@ export default function FundedCompanyRow({
   const funding    = lead.funding_amount
     ? `$${(lead.funding_amount / 1_000_000).toFixed(1)}M`
     : "—";
+
+  const websiteUrl = company?.website
+    ? (company.website.startsWith("http") ? company.website : "https://" + company.website)
+    : company?.domain
+    ? "https://" + company.domain
+    : null;
 
   async function updateStatus(e: React.ChangeEvent<HTMLSelectElement>) {
     const status = e.target.value as FundedStatus;
@@ -70,14 +77,16 @@ export default function FundedCompanyRow({
   }
 
   async function saveNotes() {
-    setSaving(true);
+    setSaveState("saving");
     await supabase.from("funded_leads").update({ notes }).eq("id", lead.id);
-    setSaving(false);
+    setSaveState("saved");
+    setTimeout(() => setSaveState("idle"), 2000);
   }
 
   async function handleRevealEmail() {
     if (!contact?.apollo_person_id) return;
     setEmailLoading(true);
+    setEmailError(null);
     try {
       const res  = await fetch("/api/reveal-email", {
         method:  "POST",
@@ -86,9 +95,9 @@ export default function FundedCompanyRow({
       });
       const data = await res.json();
       if (data.email) setEmailResult(data.email);
-      else alert(data.error || "Could not retrieve email.");
+      else setEmailError(data.error || "Could not retrieve email.");
     } catch {
-      alert("Request failed.");
+      setEmailError("Request failed. Try again.");
     }
     setEmailLoading(false);
     setCreditsConfirm(false);
@@ -99,7 +108,20 @@ export default function FundedCompanyRow({
       <tr className="border-b border-zinc-800 hover:bg-zinc-800/20 transition-colors">
         {/* Company */}
         <td className="px-4 py-3 min-w-[160px]">
-          <div className="text-sm font-semibold text-zinc-100">{company?.name || "—"}</div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-semibold text-zinc-100">{company?.name || "—"}</span>
+            {websiteUrl && (
+              <a
+                href={websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-600 hover:text-zinc-300 shrink-0"
+                title="Company website"
+              >
+                <Globe className="w-3.5 h-3.5" />
+              </a>
+            )}
+          </div>
           <div className="text-xs text-zinc-500 mt-0.5 flex items-center gap-1.5">
             {SOURCE_LABELS[lead.source] || lead.source}
             {isFollowUp && <span className="text-amber-400">· Follow-up</span>}
@@ -114,16 +136,28 @@ export default function FundedCompanyRow({
 
         {/* Date */}
         <td className="px-4 py-3 text-xs text-zinc-400 whitespace-nowrap">
-          {lead.announced_date ? format(new Date(lead.announced_date + "T00:00:00"), "MMM d, yyyy") : "—"}
+          {lead.announced_date
+            ? format(new Date(lead.announced_date + "T00:00:00"), "MMM d, yyyy")
+            : "—"}
         </td>
 
         {/* Contact */}
-        <td className="px-4 py-3 min-w-[140px]">
+        <td className="px-4 py-3 min-w-[160px]">
           {contact ? (
             <div className="flex items-center gap-2">
               <div className="min-w-0">
-                <div className="text-sm text-zinc-200 truncate max-w-[120px]">{contact.name}</div>
-                <div className="text-xs text-zinc-500 truncate max-w-[120px]">{contact.title}</div>
+                <div
+                  className="text-sm text-zinc-200 truncate max-w-[160px]"
+                  title={contact.name}
+                >
+                  {contact.name}
+                </div>
+                <div
+                  className="text-xs text-zinc-500 truncate max-w-[160px]"
+                  title={contact.title || ""}
+                >
+                  {contact.title}
+                </div>
               </div>
               {contact.linkedin_url && (
                 <a
@@ -219,6 +253,9 @@ export default function FundedCompanyRow({
                       </div>
                     </div>
                   )}
+                  {emailError && (
+                    <p className="text-xs text-red-400 mt-2">{emailError}</p>
+                  )}
                 </div>
               )}
               {emailResult && (
@@ -233,8 +270,14 @@ export default function FundedCompanyRow({
               <div>
                 <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">Notes</p>
                 <Textarea value={notes} onChange={setNotes} placeholder="Add notes..." rows={2} />
-                <Button variant="ghost" size="sm" onClick={saveNotes} disabled={saving} className="mt-2">
-                  {saving ? "Saving..." : "Save notes"}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={saveNotes}
+                  disabled={saveState !== "idle"}
+                  className="mt-2"
+                >
+                  {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved ✓" : "Save notes"}
                 </Button>
               </div>
             </div>
