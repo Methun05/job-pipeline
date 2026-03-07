@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import React, { useState } from "react";
 import { format } from "date-fns";
 import { ExternalLink, ChevronDown, ChevronUp, Mail } from "lucide-react";
 import { Button, Textarea } from "./ui";
