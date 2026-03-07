@@ -42,9 +42,17 @@ def fetch() -> list[dict]:
             if not published or published < cutoff:
                 continue
 
-            title   = entry.get("title", "").strip()
-            link    = entry.get("link", "").strip()
-            company = entry.get("author", "") or entry.get("dc_creator", "")
+            raw_title = entry.get("title", "").strip()
+            link      = entry.get("link", "").strip()
+
+            # Feed title format is "Job Title at Company" — split on " at "
+            if " at " in raw_title:
+                parts   = raw_title.rsplit(" at ", 1)
+                title   = parts[0].strip()
+                company = parts[1].strip()
+            else:
+                title   = raw_title
+                company = entry.get("author", "") or entry.get("dc_creator", "")
 
             # Location from tags
             location = ""
