@@ -21,18 +21,25 @@ def get_client():
 
 
 def _call_gemini(prompt: str) -> dict:
-    """Call Gemini, parse JSON response. Raises on failure."""
+    """Call Gemini, parse JSON response. Retries once on 429. Raises on failure."""
     time.sleep(1)  # avoid 429 on free tier (15 RPM limit)
-    resp = get_client().models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-    )
-    text = resp.text.strip()
-    # Extract JSON from response (handle markdown code blocks)
-    json_match = re.search(r'```(?:json)?\s*([\s\S]+?)\s*```', text)
-    if json_match:
-        text = json_match.group(1)
-    return json.loads(text)
+    for attempt in range(2):
+        try:
+            resp = get_client().models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+            )
+            text = resp.text.strip()
+            json_match = re.search(r'```(?:json)?\s*([\s\S]+?)\s*```', text)
+            if json_match:
+                text = json_match.group(1)
+            return json.loads(text)
+        except Exception as e:
+            if "429" in str(e) and attempt == 0:
+                print("[Gemini] 429 rate limit — waiting 60s before retry...")
+                time.sleep(60)
+                continue
+            raise
 
 
 def fetch_website_text(url: str) -> str:

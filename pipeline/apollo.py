@@ -52,7 +52,10 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
         resp = requests.post(
             f"{BASE_URL}/mixed_people/search",
             json=payload,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "X-Api-Key": APOLLO_API_KEY,
+            },
             timeout=HTTP_TIMEOUT,
         )
         resp.raise_for_status()
@@ -111,12 +114,14 @@ def reveal_email(apollo_person_id: str) -> str | None:
         resp = requests.post(
             f"{BASE_URL}/people/match",
             json={
-                "api_key":                 APOLLO_API_KEY,
                 "id":                      apollo_person_id,
                 "reveal_personal_emails":  False,
                 "reveal_phone_number":     False,
             },
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "X-Api-Key": APOLLO_API_KEY,
+            },
             timeout=HTTP_TIMEOUT,
         )
         resp.raise_for_status()
