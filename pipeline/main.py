@@ -98,9 +98,10 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
 
     # Upsert company
     company_row = {
-        "name":   name,
-        "domain": domain or None,
-        "website": url or None,
+        "name":         name,
+        "domain":       domain or None,
+        "website":      url or None,
+        "linkedin_url": company_data.get("linkedin_url") or None,
     }
     company_id = db.upsert_company(company_row)
 

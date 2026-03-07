@@ -4,9 +4,13 @@ No API key required. No Playwright. Two HTTP requests per run:
   1. Fetch page to get current Next.js buildId
   2. Fetch /_next/data/{buildId}/funding-rounds.json for structured JSON
 
+For each company, one additional request to /ico/{key} extracts
+the real website URL and company LinkedIn from the links array.
+
 Returns ~20 most recent funding rounds per run.
 """
 import json
+import time
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
@@ -41,10 +45,40 @@ def _get_build_id() -> str:
     return json.loads(script.string)["buildId"]
 
 
+def _fetch_company_links(key: str) -> tuple[str, str]:
+    """
+    Fetch website and LinkedIn URL from the company's CryptoRank page.
+    Returns (website, linkedin_url) — empty strings on any failure.
+    """
+    try:
+        time.sleep(1)  # avoid hammering CryptoRank
+        resp = requests.get(
+            f"{BASE_URL}/ico/{key}",
+            headers=HEADERS,
+            timeout=HTTP_TIMEOUT,
+        )
+        resp.raise_for_status()
+        script = BeautifulSoup(resp.text, "lxml").find("script", {"id": "__NEXT_DATA__"})
+        if not script:
+            return "", ""
+        links = (
+            json.loads(script.string)
+            .get("props", {})
+            .get("pageProps", {})
+            .get("coin", {})
+            .get("links", [])
+        )
+        website  = next((l["value"] for l in links if l.get("type") == "web"), "")
+        linkedin = next((l["value"] for l in links if l.get("type") == "linkedin"), "")
+        return website, linkedin
+    except Exception:
+        return "", ""
+
+
 def fetch() -> list[dict]:
     """
     Returns list of normalized funded company dicts matching our filters.
-    Each dict: {name, website, funding_amount, funding_currency, round_type, announced_date, source}
+    Each dict: {name, website, linkedin_url, funding_amount, funding_currency, round_type, announced_date, source}
     """
     cutoff = datetime.now(timezone.utc) - timedelta(days=TRACK_A_DAYS_WINDOW)
 
@@ -89,14 +123,15 @@ def fetch() -> list[dict]:
             if not name:
                 continue
 
-            # No company website in the API response — leave empty so Apollo
-            # skips domain search rather than searching against cryptorank.io
-            key     = item.get("key", "")
-            website = ""
+            key = item.get("key", "")
+
+            # Fetch real website + LinkedIn from company page
+            website, linkedin_url = _fetch_company_links(key) if key else ("", "")
 
             results.append({
                 "name":             name,
                 "website":          website,
+                "linkedin_url":     linkedin_url,
                 "funding_amount":   amount,
                 "funding_currency": "USD",
                 "round_type":       round_type,

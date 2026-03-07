@@ -65,11 +65,15 @@ export default function FundedCompanyRow({
     ? (company.website.startsWith("http") ? company.website : "https://" + company.website)
     : company?.domain
     ? "https://" + company.domain
-    : lead.source === "cryptorank" && lead.raw_data?.key
-    ? `https://cryptorank.io/ico/${lead.raw_data.key}`
     : null;
 
   const companyLinkedin = company?.linkedin_url || null;
+
+  // Fallback: CryptoRank profile page if no real website yet
+  const companyPageUrl = websiteUrl
+    || (lead.source === "cryptorank" && lead.raw_data?.key
+      ? `https://cryptorank.io/ico/${lead.raw_data.key}`
+      : null);
 
   async function updateStatus(e: React.ChangeEvent<HTMLSelectElement>) {
     const status = e.target.value as FundedStatus;
@@ -114,13 +118,13 @@ export default function FundedCompanyRow({
         <td className="px-4 py-3 min-w-[160px]">
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-semibold text-zinc-100">{company?.name || "—"}</span>
-            {websiteUrl && (
+            {companyPageUrl && (
               <a
-                href={websiteUrl}
+                href={companyPageUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-zinc-600 hover:text-zinc-300 shrink-0"
-                title={lead.source === "cryptorank" && !company?.website && !company?.domain ? "View on CryptoRank" : "Company website"}
+                title={websiteUrl ? "Company website" : "View on CryptoRank"}
               >
                 <Globe className="w-3.5 h-3.5" />
               </a>
