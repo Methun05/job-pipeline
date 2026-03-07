@@ -45,9 +45,9 @@ def classify_experience(text: str) -> tuple[str, int | None, int | None]:
             min_y = min(years)
             max_y = max(years)
 
-            if max_y >= 8 or min_y >= 8:
+            if max_y >= 7 or min_y >= 7:
                 return ("skip", min_y, max_y)
-            elif max_y >= 6 or min_y >= 6:
+            elif max_y >= 5 or min_y >= 5:
                 return ("stretch", min_y, max_y)
             else:
                 return ("strong", min_y, max_y)
@@ -58,6 +58,6 @@ def classify_experience(text: str) -> tuple[str, int | None, int | None]:
     if MID_KEYWORDS.search(text):
         return ("strong", 2, 5)
     if SENIOR_KEYWORDS.search(text):
-        return ("stretch", 4, 7)
+        return ("skip", 5, 7)
 
     return ("ambiguous", None, None)
