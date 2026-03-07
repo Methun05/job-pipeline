@@ -11,9 +11,12 @@ import type { FundedLead, FundedStatus } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 
 const SOURCE_LABELS: Record<string, string> = {
-  cryptorank: "CryptoRank",
-  techcrunch:  "TechCrunch",
-  eu_startups: "EU Startups",
+  cryptorank:    "CryptoRank",
+  techcrunch:    "TechCrunch",
+  eu_startups:   "EU Startups",
+  cointelegraph: "Cointelegraph",
+  decrypt:       "Decrypt",
+  blockworks:    "Blockworks",
 };
 
 const STATUS_CONFIG: Record<FundedStatus, { label: string; color: string }> = {

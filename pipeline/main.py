@@ -27,7 +27,7 @@ from pipeline.config import (
 )
 
 from pipeline.fetchers import (
-    crypto_rss, techcrunch_rss, eu_startups_rss,
+    cryptorank_scraper, crypto_rss, techcrunch_rss, eu_startups_rss,
     web3career, cryptojobslist_rss, cryptocurrencyjobs_rss,
 )
 
@@ -351,6 +351,14 @@ def main():
     # ── Track A ───────────────────────────────────────────────────────────────
     print("[Track A] Starting funded company pipeline...")
     raw_funded = []
+
+    # CryptoRank scraper — structured funding data, no API key needed
+    try:
+        items = cryptorank_scraper.fetch()
+        print(f"[CryptoRank] Fetched {len(items)} matching rounds")
+        raw_funded.extend(items)
+    except Exception as e:
+        stats.add_error("cryptorank_scraper", str(e))
 
     # RSS sources → Gemini extraction
     rss_sources = [
