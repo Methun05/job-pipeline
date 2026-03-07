@@ -53,7 +53,7 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
 
     try:
         resp = requests.post(
-            f"{BASE_URL}/mixed_people/search",
+            f"{BASE_URL}/mixed_people/api_search",
             json=payload,
             headers={
                 "Content-Type": "application/json",
