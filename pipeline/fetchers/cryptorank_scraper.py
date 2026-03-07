@@ -89,9 +89,10 @@ def fetch() -> list[dict]:
             if not name:
                 continue
 
-            # Build website from key (no direct website field in API)
+            # No company website in the API response — leave empty so Apollo
+            # skips domain search rather than searching against cryptorank.io
             key     = item.get("key", "")
-            website = f"{BASE_URL}/ico/{key}" if key else ""
+            website = ""
 
             results.append({
                 "name":             name,

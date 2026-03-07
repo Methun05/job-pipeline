@@ -17,11 +17,12 @@ Complete in ~20 minutes. All free tiers.
 
 ---
 
-## Step 2 — Groq API (2 min)
+## Step 2 — Google Gemini API (2 min)
 
-1. Go to https://console.groq.com → Sign up (free)
-2. Click **API Keys → Create API Key**
-3. Copy the key → `GROQ_API_KEY`
+1. Go to https://aistudio.google.com → Sign in with Google
+2. Click **Get API Key → Create API Key**
+3. Copy the key → `GEMINI_API_KEY`
+4. Free tier: 1,500 requests/day, 15 requests/min
 
 ---
 
@@ -34,10 +35,10 @@ Complete in ~20 minutes. All free tiers.
 
 ---
 
-## Step 4 — CryptoRank (2 min)
+## Step 4 — Web3.career API (1 min)
 
-1. Go to https://cryptorank.io/public-api → Sign up
-2. Generate API key → `CRYPTORANK_API_KEY`
+1. Go to https://web3.career/post-job → Sign up
+2. Get your API token → `WEB3CAREER_API_KEY`
 
 ---
 
@@ -61,9 +62,9 @@ git push -u origin main
    Add these secrets (one by one):
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_KEY`
-   - `GROQ_API_KEY`
+   - `GEMINI_API_KEY`
    - `APOLLO_API_KEY`
-   - `CRYPTORANK_API_KEY`
+   - `WEB3CAREER_API_KEY`
 
 ---
 

@@ -12,7 +12,6 @@ SUPABASE_URL         = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 GEMINI_API_KEY       = os.getenv("GEMINI_API_KEY", "")
 APOLLO_API_KEY       = os.getenv("APOLLO_API_KEY", "")
-CRYPTORANK_API_KEY   = os.getenv("CRYPTORANK_API_KEY", "")
 WEB3CAREER_API_KEY   = os.getenv("WEB3CAREER_API_KEY", "")
 
 # ── Gemini model ──────────────────────────────────────────────────────────────
