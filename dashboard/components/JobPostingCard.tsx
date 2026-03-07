@@ -11,11 +11,11 @@ import type { JobPosting, AppStatus, OutreachStatus } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 
 const SOURCE_LABELS: Record<string, string> = {
-  remoteok:    "RemoteOK",
-  remotive:    "Remotive",
-  wwr:         "We Work Remotely",
-  justjoinit:  "JustJoinIT",
-  mycareers_sg:"MyCareersFuture",
+  remoteok:        "RemoteOK",
+  remotive:        "Remotive",
+  wwr:             "We Work Remotely",
+  web3career:      "Web3.career",
+  cryptojobslist:  "CryptoJobsList",
 };
 
 const REMOTE_LABELS = {

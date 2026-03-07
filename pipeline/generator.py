@@ -5,6 +5,7 @@ All tasks batched into a single prompt per record.
 """
 import json
 import re
+import time
 import requests
 from google import genai
 from pipeline.config import GEMINI_API_KEY, GEMINI_MODEL, PROFILE, HTTP_TIMEOUT
@@ -21,6 +22,7 @@ def get_client():
 
 def _call_gemini(prompt: str) -> dict:
     """Call Gemini, parse JSON response. Raises on failure."""
+    time.sleep(1)  # avoid 429 on free tier (15 RPM limit)
     resp = get_client().models.generate_content(
         model=GEMINI_MODEL,
         contents=prompt,

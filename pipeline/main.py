@@ -27,8 +27,8 @@ from pipeline.config import (
 )
 
 from pipeline.fetchers import (
-    cryptorank, techcrunch_rss, eu_startups_rss,
-    remoteok, remotive, wwr_rss, justjoinit, web3career,
+    crypto_rss, techcrunch_rss, eu_startups_rss,
+    remoteok, remotive, wwr_rss, web3career, cryptojobslist_rss,
 )
 
 
@@ -352,47 +352,29 @@ def main():
     print("[Track A] Starting funded company pipeline...")
     raw_funded = []
 
-    # CryptoRank: structured data
-    try:
-        items = cryptorank.fetch()
-        print(f"[CryptoRank] Fetched {len(items)} items")
-        raw_funded.extend(items)
-    except Exception as e:
-        stats.add_error("cryptorank", str(e))
-
-    # TechCrunch RSS → Groq extraction
-    try:
-        articles = techcrunch_rss.fetch()
-        print(f"[TechCrunch] {len(articles)} funding articles to process")
-        for article in articles:
-            try:
-                extracted = gen.extract_funding_from_article(
-                    article["title"], article["summary"], "techcrunch"
-                )
-                if extracted:
-                    extracted["announced_date"] = article["published_date"]
-                    raw_funded.append(extracted)
-            except Exception as e:
-                stats.add_error("techcrunch_extract", str(e))
-    except Exception as e:
-        stats.add_error("techcrunch_rss", str(e))
-
-    # EU-Startups RSS → Groq extraction
-    try:
-        articles = eu_startups_rss.fetch()
-        print(f"[EU-Startups] {len(articles)} funding articles to process")
-        for article in articles:
-            try:
-                extracted = gen.extract_funding_from_article(
-                    article["title"], article["summary"], "eu_startups"
-                )
-                if extracted:
-                    extracted["announced_date"] = article["published_date"]
-                    raw_funded.append(extracted)
-            except Exception as e:
-                stats.add_error("eu_startups_extract", str(e))
-    except Exception as e:
-        stats.add_error("eu_startups_rss", str(e))
+    # RSS sources → Gemini extraction
+    rss_sources = [
+        ("techcrunch_rss",  techcrunch_rss.fetch,  "techcrunch"),
+        ("eu_startups_rss", eu_startups_rss.fetch, "eu_startups"),
+        ("crypto_rss",      crypto_rss.fetch,      None),   # source name comes from article
+    ]
+    for fetcher_name, fetcher_fn, default_source in rss_sources:
+        try:
+            articles = fetcher_fn()
+            print(f"[{fetcher_name}] {len(articles)} funding articles to process")
+            for article in articles:
+                try:
+                    source = article.get("source") or default_source or fetcher_name
+                    extracted = gen.extract_funding_from_article(
+                        article["title"], article["summary"], source
+                    )
+                    if extracted:
+                        extracted["announced_date"] = article["published_date"]
+                        raw_funded.append(extracted)
+                except Exception as e:
+                    stats.add_error(f"{fetcher_name}_extract", str(e))
+        except Exception as e:
+            stats.add_error(fetcher_name, str(e))
 
     print(f"[Track A] Processing {len(raw_funded)} funded company candidates...")
     for item in raw_funded:
@@ -406,11 +388,11 @@ def main():
     raw_jobs = []
 
     track_b_fetchers = [
-        ("remoteok",   remoteok.fetch),
-        ("remotive",   remotive.fetch),
-        ("wwr",        wwr_rss.fetch),
-        ("justjoinit", justjoinit.fetch),
-        ("web3career", web3career.fetch),
+        ("remoteok",          remoteok.fetch),
+        ("remotive",          remotive.fetch),
+        ("wwr",               wwr_rss.fetch),
+        ("web3career",        web3career.fetch),
+        ("cryptojobslist",    cryptojobslist_rss.fetch),
     ]
 
     for name, fetcher_fn in track_b_fetchers:

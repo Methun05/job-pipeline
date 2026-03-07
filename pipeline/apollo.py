@@ -38,14 +38,15 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
     titles = _titles_for_size(employee_count)
 
     payload = {
-        "api_key":                  APOLLO_API_KEY,
-        "q_organization_domains":   [domain] if domain else [],
-        "q_organization_name":      company_name if not domain else "",
-        "person_titles":            titles,
-        "page":                     1,
-        "per_page":                 1,
-        "prospected_by_current_team": ["no"],   # fresh leads only
+        "api_key":      APOLLO_API_KEY,
+        "person_titles": titles,
+        "page":          1,
+        "per_page":      1,
     }
+    if domain:
+        payload["q_organization_domains"] = [domain]
+    else:
+        payload["q_organization_name"] = company_name
 
     try:
         resp = requests.post(
