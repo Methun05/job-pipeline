@@ -23,7 +23,7 @@ from pipeline.dedup.matcher import find_company_match, normalize_domain
 from pipeline.filters.experience import classify_experience
 from pipeline.filters.remote_scope import detect_remote_scope
 from pipeline.config import (
-    DESIGN_ROLE_KEYWORDS, FUNDING_MIN_USD, FUNDING_MAX_USD, NINETY_DAY_RESET
+    DESIGN_ROLE_KEYWORDS, FUNDING_MIN_USD, FUNDING_MAX_USD, NINETY_DAY_RESET, GEMINI_ENABLED
 )
 
 from pipeline.fetchers import (
@@ -135,27 +135,27 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
     except Exception as e:
         stats.add_error("apollo_track_a", str(e))
 
-    # Groq: generate content
+    # Gemini: generate content (skipped if disabled)
     linkedin_note = None
     email_draft   = None
     description   = None
-    try:
-        result = gen.generate_funded_company_content(
-            company_name    = name,
-            website         = url,
-            funding_amount  = amount or 0,
-            round_type      = round_type,
-        )
-        description   = result.get("summary")
-        linkedin_note = result.get("linkedin_note")
-        email_draft   = (
-            f"Subject: {result.get('email_subject', '')}\n\n"
-            f"{result.get('email_body', '')}"
-        )
-        # Update company description
-        db.upsert_company({"name": name, "domain": domain, "description": description})
-    except Exception as e:
-        stats.add_error("groq_track_a", str(e))
+    if GEMINI_ENABLED:
+        try:
+            result = gen.generate_funded_company_content(
+                company_name    = name,
+                website         = url,
+                funding_amount  = amount or 0,
+                round_type      = round_type,
+            )
+            description   = result.get("summary")
+            linkedin_note = result.get("linkedin_note")
+            email_draft   = (
+                f"Subject: {result.get('email_subject', '')}\n\n"
+                f"{result.get('email_body', '')}"
+            )
+            db.upsert_company({"name": name, "domain": domain, "description": description})
+        except Exception as e:
+            stats.add_error("gemini_track_a", str(e))
 
     # Save funded lead
     db.insert_funded_lead({
@@ -243,7 +243,7 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
     except Exception as e:
         stats.add_error("apollo_track_b", str(e))
 
-    # Groq: generate all content in one call
+    # Gemini: generate all content in one call (skipped if disabled)
     description_summary = None
     cover_letter        = None
     linkedin_note       = None
@@ -251,32 +251,33 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
     groq_exp_match      = exp_match if not needs_exp_groq else "strong"  # fallback
     groq_remote_scope   = remote_scope if not needs_remote_groq else "unclear"
 
-    try:
-        result = gen.generate_job_content(
-            job_title      = job["job_title"],
-            company_name   = name,
-            description    = job.get("description_raw", ""),
-            needs_experience_classification = needs_exp_groq,
-            needs_remote_classification     = needs_remote_groq,
-            contact_name   = contact_name,
-            contact_title  = contact_title,
-        )
-        description_summary = "\n".join(result.get("requirements_bullets", []))
-        cover_letter        = result.get("cover_letter")
-        linkedin_note       = result.get("linkedin_note")
-        email_draft = (
-            f"Subject: {result.get('email_subject', '')}\n\n"
-            f"{result.get('email_body', '')}"
-        )
-        if needs_exp_groq and result.get("experience_match"):
-            groq_exp_match = result["experience_match"]
-            if groq_exp_match == "skip":
-                stats.track_b_skipped_filter += 1
-                return
-        if needs_remote_groq and result.get("remote_scope"):
-            groq_remote_scope = result["remote_scope"]
-    except Exception as e:
-        stats.add_error("groq_track_b", str(e))
+    if GEMINI_ENABLED:
+        try:
+            result = gen.generate_job_content(
+                job_title      = job["job_title"],
+                company_name   = name,
+                description    = job.get("description_raw", ""),
+                needs_experience_classification = needs_exp_groq,
+                needs_remote_classification     = needs_remote_groq,
+                contact_name   = contact_name,
+                contact_title  = contact_title,
+            )
+            description_summary = "\n".join(result.get("requirements_bullets", []))
+            cover_letter        = result.get("cover_letter")
+            linkedin_note       = result.get("linkedin_note")
+            email_draft = (
+                f"Subject: {result.get('email_subject', '')}\n\n"
+                f"{result.get('email_body', '')}"
+            )
+            if needs_exp_groq and result.get("experience_match"):
+                groq_exp_match = result["experience_match"]
+                if groq_exp_match == "skip":
+                    stats.track_b_skipped_filter += 1
+                    return
+            if needs_remote_groq and result.get("remote_scope"):
+                groq_remote_scope = result["remote_scope"]
+        except Exception as e:
+            stats.add_error("gemini_track_b", str(e))
 
     # Save job posting
     db.insert_job_posting({
@@ -308,6 +309,8 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
 
 def generate_followups(stats: Stats):
     """Generate follow-up messages for records that are 7+ days old."""
+    if not GEMINI_ENABLED:
+        return
 
     # Funded leads
     leads = db.get_funded_leads_needing_followup(days=7)

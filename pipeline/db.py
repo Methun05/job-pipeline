@@ -77,10 +77,19 @@ def update_company(company_id: str, data: dict):
     get_client().table("companies").update(data).eq("id", company_id).execute()
 
 
+def get_company_by_name(name: str) -> Optional[dict]:
+    res = get_client().table("companies").select("*").ilike("name", name).limit(1).execute()
+    return res.data[0] if res.data else None
+
+
 def upsert_company(data: dict) -> str:
     """Insert or update company. Returns company id."""
     domain = data.get("domain")
+    # Try domain match first (most reliable)
     existing = get_company_by_domain(domain) if domain else None
+    # Fall back to exact name match
+    if not existing and data.get("name"):
+        existing = get_company_by_name(data["name"])
     if existing:
         get_client().table("companies").update(data).eq("id", existing["id"]).execute()
         return existing["id"]

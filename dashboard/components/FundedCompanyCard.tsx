@@ -228,6 +228,20 @@ export default function FundedCompanyRow({
           <td colSpan={6} className="px-6 py-4">
             <div className="space-y-4 max-w-2xl">
 
+              {/* Investors */}
+              {lead.raw_data?.funds && lead.raw_data.funds.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">Investors</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {lead.raw_data.funds.map((fund: string) => (
+                      <span key={fund} className="px-2 py-0.5 bg-zinc-800 text-zinc-300 text-xs rounded-md">
+                        {fund}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* LinkedIn / follow-up message */}
               {message && (
                 <div>
