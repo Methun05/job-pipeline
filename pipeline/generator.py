@@ -8,7 +8,7 @@ import re
 import time
 import requests
 from google import genai
-from pipeline.config import GEMINI_API_KEY, GEMINI_MODEL, PROFILE, HTTP_TIMEOUT
+from pipeline.config import GEMINI_API_KEY, GEMINI_MODEL, GEMINI_ENABLED, PROFILE, HTTP_TIMEOUT
 from bs4 import BeautifulSoup
 
 _client = None
@@ -22,6 +22,8 @@ def get_client():
 
 def _call_gemini(prompt: str) -> dict:
     """Call Gemini, parse JSON response. Retries once on 429. Raises on failure."""
+    if not GEMINI_ENABLED:
+        raise RuntimeError("Gemini disabled (GEMINI_ENABLED=False)")
     time.sleep(1)  # avoid 429 on free tier (15 RPM limit)
     for attempt in range(2):
         try:
@@ -245,6 +247,8 @@ Write a short follow-up message (under 250 characters) that:
 
 Return only the message text, no JSON, no quotes."""
 
+    if not GEMINI_ENABLED:
+        raise RuntimeError("Gemini disabled (GEMINI_ENABLED=False)")
     try:
         resp = get_client().models.generate_content(
             model=GEMINI_MODEL,
