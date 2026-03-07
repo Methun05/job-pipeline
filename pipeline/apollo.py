@@ -6,6 +6,7 @@ Email Reveal (/people/match) — 1 credit each, ONLY called from dashboard API r
 
 Rate limits: 50 req/min, 600/day for People Search.
 """
+import time
 import requests
 from pipeline.config import APOLLO_API_KEY, HTTP_TIMEOUT, APOLLO_CREDIT_ALERT
 import pipeline.db as db
@@ -35,18 +36,20 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
     if not APOLLO_API_KEY:
         return None
 
+    # Skip if no domain — name-only search is too unreliable, returns wrong people
+    if not domain:
+        return None
+
+    time.sleep(1.2)  # stay under 50 req/min rate limit
+
     titles = _titles_for_size(employee_count)
 
     payload = {
-        "api_key":      APOLLO_API_KEY,
-        "person_titles": titles,
-        "page":          1,
-        "per_page":      1,
+        "person_titles":            titles,
+        "q_organization_domains":   [domain],
+        "page":                     1,
+        "per_page":                 1,
     }
-    if domain:
-        payload["q_organization_domains"] = [domain]
-    else:
-        payload["q_organization_name"] = company_name
 
     try:
         resp = requests.post(
@@ -92,12 +95,9 @@ def get_credit_balance() -> int | None:
         )
         resp.raise_for_status()
         data = resp.json()
-        # Apollo returns credits in different fields depending on plan
-        credits = (
-            data.get("credits_used_this_month") and
-            data.get("monthly_credits_limit", 0) - data.get("credits_used_this_month", 0)
-        )
-        return int(credits) if credits is not None else None
+        credits_used = data.get("credits_used_this_month")
+        limit        = data.get("monthly_credits_limit", 0)
+        return (limit - credits_used) if credits_used is not None else None
     except Exception:
         return None
 
