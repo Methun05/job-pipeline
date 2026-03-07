@@ -73,6 +73,10 @@ def get_company_by_domain(domain: str) -> Optional[dict]:
     return res.data[0] if res.data else None
 
 
+def update_company(company_id: str, data: dict):
+    get_client().table("companies").update(data).eq("id", company_id).execute()
+
+
 def upsert_company(data: dict) -> str:
     """Insert or update company. Returns company id."""
     domain = data.get("domain")

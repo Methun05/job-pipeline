@@ -114,11 +114,21 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
     try:
         contact_data = apollo.find_contact(name, domain, None)
         if contact_data and contact_data.get("apollo_person_id"):
+            # Enrich company record with org data Apollo returned
+            org_update = {}
+            if contact_data.get("org_website"):
+                org_update["website"] = contact_data["org_website"]
+            if contact_data.get("org_linkedin"):
+                org_update["linkedin_url"] = contact_data["org_linkedin"]
+            if org_update:
+                db.update_company(company_id, org_update)
+
             existing_contact = db.get_contact_by_apollo_id(contact_data["apollo_person_id"])
             if existing_contact:
                 contact_id = existing_contact["id"]
             else:
-                contact_id = db.insert_contact({**contact_data, "company_id": company_id})
+                contact_insert = {k: v for k, v in contact_data.items() if not k.startswith("org_")}
+                contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
             contact_name  = contact_data.get("name", "")
             contact_title = contact_data.get("title", "")
     except Exception as e:
@@ -212,11 +222,21 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
     try:
         contact_data = apollo.find_contact(name, domain, None)
         if contact_data and contact_data.get("apollo_person_id"):
+            # Enrich company record with org data Apollo returned
+            org_update = {}
+            if contact_data.get("org_website"):
+                org_update["website"] = contact_data["org_website"]
+            if contact_data.get("org_linkedin"):
+                org_update["linkedin_url"] = contact_data["org_linkedin"]
+            if org_update:
+                db.update_company(company_id, org_update)
+
             existing_contact = db.get_contact_by_apollo_id(contact_data["apollo_person_id"])
             if existing_contact:
                 contact_id = existing_contact["id"]
             else:
-                contact_id = db.insert_contact({**contact_data, "company_id": company_id})
+                contact_insert = {k: v for k, v in contact_data.items() if not k.startswith("org_")}
+                contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
             contact_name  = contact_data.get("name", "")
             contact_title = contact_data.get("title", "")
     except Exception as e:

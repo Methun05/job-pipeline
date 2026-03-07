@@ -16,6 +16,7 @@ export interface Company {
   name: string;
   domain: string | null;
   website: string | null;
+  linkedin_url: string | null;
   description: string | null;
   employee_count: number | null;
 }

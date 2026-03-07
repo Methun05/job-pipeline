@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { format } from "date-fns";
-import { ExternalLink, ChevronDown, ChevronUp, Mail, Globe } from "lucide-react";
+import { ExternalLink, ChevronDown, ChevronUp, Mail, Globe, Linkedin } from "lucide-react";
 import { Button, Textarea } from "./ui";
 import CopyButton from "./CopyButton";
 import type { FundedLead, FundedStatus } from "@/lib/types";
@@ -67,6 +67,8 @@ export default function FundedCompanyRow({
     ? "https://" + company.domain
     : null;
 
+  const companyLinkedin = company?.linkedin_url || null;
+
   async function updateStatus(e: React.ChangeEvent<HTMLSelectElement>) {
     const status = e.target.value as FundedStatus;
     await supabase
@@ -119,6 +121,17 @@ export default function FundedCompanyRow({
                 title="Company website"
               >
                 <Globe className="w-3.5 h-3.5" />
+              </a>
+            )}
+            {companyLinkedin && (
+              <a
+                href={companyLinkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-600 hover:text-blue-400 shrink-0"
+                title="Company LinkedIn"
+              >
+                <Linkedin className="w-3.5 h-3.5" />
               </a>
             )}
           </div>

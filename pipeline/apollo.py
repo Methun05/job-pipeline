@@ -74,12 +74,17 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
         return None
 
     person = people[0]
+    org = person.get("organization") or {}
     return {
         "apollo_person_id": person.get("id"),
         "name":             f"{person.get('first_name', '')} {person.get('last_name', '')}".strip(),
         "title":            person.get("title"),
         "linkedin_url":     person.get("linkedin_url"),
         "seniority":        person.get("seniority"),
+        # Company-level data (used to enrich companies table, NOT stored on contact)
+        "org_name":         org.get("name"),
+        "org_website":      org.get("website_url") or org.get("primary_domain"),
+        "org_linkedin":     org.get("linkedin_url"),
     }
 
 
