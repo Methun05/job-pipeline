@@ -63,6 +63,9 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
         )
         resp.raise_for_status()
         data = resp.json()
+    except requests.exceptions.HTTPError as e:
+        body = e.response.text if e.response is not None else ""
+        raise RuntimeError(f"Apollo People Search failed: {e} | body: {body[:300]}")
     except Exception as e:
         raise RuntimeError(f"Apollo People Search failed: {e}")
 
