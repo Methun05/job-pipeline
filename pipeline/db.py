@@ -186,11 +186,14 @@ def update_job_posting(job_id: str, data: dict):
 
 def get_lever_companies() -> list[dict]:
     """Returns all active lever company slugs from DB."""
-    res = (get_client().table("lever_companies")
-           .select("slug,company_name")
-           .eq("active", True)
-           .execute())
-    return res.data or []
+    try:
+        res = (get_client().table("lever_companies")
+               .select("slug,company_name")
+               .eq("active", True)
+               .execute())
+        return res.data or []
+    except Exception:
+        return []  # table not yet created — fall back to config list only
 
 
 def save_lever_company(slug: str, company_name: str):
