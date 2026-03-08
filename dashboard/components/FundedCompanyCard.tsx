@@ -76,6 +76,7 @@ export default function FundedCompanyRow({
   const [notes, setNotes]                   = useState(lead.notes || "");
   const [saveState, setSaveState]           = useState<"idle" | "saving" | "saved">("idle");
   const [creditsConfirm, setCreditsConfirm] = useState(false);
+  const [twitterConf, setTwitterConf]       = useState(contact?.twitter_confidence ?? null);
 
   const company    = lead.companies;
   const contact    = lead.contacts;
@@ -101,6 +102,12 @@ export default function FundedCompanyRow({
       .update({ status, last_action_at: new Date().toISOString() })
       .eq("id", lead.id);
     onStatusChange(lead.id, status);
+  }
+
+  async function markTwitterVerified() {
+    if (!contact?.id) return;
+    await supabase.from("contacts").update({ twitter_confidence: "high" }).eq("id", contact.id);
+    setTwitterConf("high");
   }
 
   async function saveNotes() {
@@ -188,12 +195,21 @@ export default function FundedCompanyRow({
                   <ExternalLink className="w-3 h-3" />
                 </a>
               )}
-              {contact.twitter_url && (
-                <a href={contact.twitter_url} target="_blank" rel="noopener noreferrer"
-                  className="text-zinc-600 hover:text-zinc-200 transition-colors shrink-0" title="X (Twitter)">
-                  <Twitter className="w-3 h-3" />
-                </a>
-              )}
+              {contact.twitter_url && (() => {
+                const conf = twitterConf;
+                const iconColor = conf === "high"
+                  ? "text-blue-400 hover:text-blue-300"
+                  : "text-yellow-500 hover:text-yellow-300";
+                const titleText = conf === "high"
+                  ? "X — bio-verified match"
+                  : "X — unverified, eyeball before using";
+                return (
+                  <a href={contact.twitter_url!} target="_blank" rel="noopener noreferrer"
+                    className={`transition-colors shrink-0 ${iconColor}`} title={titleText}>
+                    <Twitter className="w-3 h-3" />
+                  </a>
+                );
+              })()}
             </div>
           ) : (
             <span className="text-[11px] text-zinc-700 italic">No contact</span>
@@ -297,6 +313,20 @@ export default function FundedCompanyRow({
                   <Mail className="w-3.5 h-3.5 text-emerald-400" />
                   <span className="text-sm text-emerald-300 font-medium">{emailResult}</span>
                   <CopyButton text={emailResult} label="Copy" />
+                </div>
+              )}
+
+              {/* Twitter verification */}
+              {contact?.twitter_url && twitterConf !== "high" && (
+                <div className="flex items-center gap-2 bg-yellow-900/20 border border-yellow-800/30 rounded-lg px-3 py-2">
+                  <Twitter className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+                  <a href={contact.twitter_url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-yellow-300 hover:underline truncate flex-1">
+                    {contact.twitter_url}
+                  </a>
+                  <Button variant="ghost" size="sm" onClick={markTwitterVerified}>
+                    Mark verified ✓
+                  </Button>
                 </div>
               )}
 

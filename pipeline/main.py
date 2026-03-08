@@ -132,10 +132,11 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
                 contact_insert = {k: v for k, v in contact_data.items() if not k.startswith("org_")}
                 # Twitter enrichment
                 try:
-                    twitter_url = find_twitter_handle(contact_data.get("name", ""), name)
+                    twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
                     if twitter_url:
                         contact_insert["twitter_url"] = twitter_url
-                        print(f"[Twitter] Found: {twitter_url}")
+                        contact_insert["twitter_confidence"] = twitter_confidence
+                        print(f"[Twitter] Found ({twitter_confidence}): {twitter_url}")
                 except Exception:
                     pass
                 contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
@@ -248,10 +249,11 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
                 contact_insert = {k: v for k, v in contact_data.items() if not k.startswith("org_")}
                 # Twitter enrichment
                 try:
-                    twitter_url = find_twitter_handle(contact_data.get("name", ""), name)
+                    twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
                     if twitter_url:
                         contact_insert["twitter_url"] = twitter_url
-                        print(f"[Twitter] Found: {twitter_url}")
+                        contact_insert["twitter_confidence"] = twitter_confidence
+                        print(f"[Twitter] Found ({twitter_confidence}): {twitter_url}")
                 except Exception:
                     pass
                 contact_id = db.insert_contact({**contact_insert, "company_id": company_id})

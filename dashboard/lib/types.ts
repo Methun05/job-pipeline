@@ -29,6 +29,7 @@ export interface Contact {
   title: string | null;
   linkedin_url: string | null;
   twitter_url: string | null;
+  twitter_confidence: "high" | "low" | null;
   seniority: string | null;
   email: string | null;
   email_revealed: boolean;
