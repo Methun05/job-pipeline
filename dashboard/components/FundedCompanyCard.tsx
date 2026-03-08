@@ -14,55 +14,53 @@ export const SOURCE_LABELS: Record<string, string> = {
   cointelegraph: "Cointelegraph",
   decrypt:       "Decrypt",
   blockworks:    "Blockworks",
+  crunchbase:    "Crunchbase",
 };
 
 export const STATUS_OPTIONS: { value: FundedStatus; label: string }[] = [
-  { value: "new",             label: "New" },
+  { value: "new",             label: "New"           },
   { value: "connection_sent", label: "LinkedIn Sent" },
-  { value: "connected",       label: "Connected" },
-  { value: "replied",         label: "Replied" },
-  { value: "interview",       label: "Interview" },
-  { value: "closed",          label: "Closed" },
-  { value: "skipped",         label: "Skipped" },
-  { value: "cant_find",       label: "Can't Find" },
+  { value: "connected",       label: "Connected"     },
+  { value: "replied",         label: "Replied"       },
+  { value: "interview",       label: "Interview"     },
+  { value: "closed",          label: "Closed"        },
+  { value: "skipped",         label: "Skipped"       },
+  { value: "cant_find",       label: "Can't Find"    },
 ];
 
+// ── Outreach dropdown (LinkedIn connection journey) ───────────────────────────
 const OUTREACH_OPTIONS = [
-  { value: "new",             label: "Not Sent" },
-  { value: "connection_sent", label: "Sent" },
-  { value: "connected",       label: "Connected" },
-  { value: "cant_find",       label: "Can't Find" },
+  { value: "new",             label: "Not Sent",   color: "text-zinc-400" },
+  { value: "connection_sent", label: "Sent",       color: "text-indigo-400" },
+  { value: "connected",       label: "Connected",  color: "text-blue-400" },
+  { value: "cant_find",       label: "Can't Find", color: "text-red-400" },
 ];
 
+// ── Response dropdown (what happened after connecting) ────────────────────────
 const RESPONSE_OPTIONS = [
-  { value: "",          label: "—" },
-  { value: "replied",   label: "Replied" },
-  { value: "interview", label: "Interview" },
-  { value: "closed",    label: "Closed" },
-  { value: "skipped",   label: "Skipped" },
+  { value: "",          label: "—",         color: "text-zinc-500" },
+  { value: "replied",   label: "Replied",   color: "text-emerald-400" },
+  { value: "interview", label: "Interview", color: "text-yellow-400" },
+  { value: "closed",    label: "Closed",    color: "text-zinc-500" },
+  { value: "skipped",   label: "Skipped",   color: "text-zinc-600" },
 ];
 
 const RESPONSE_STATUSES = new Set(["replied", "interview", "closed", "skipped"]);
 
 function getOutreachValue(status: FundedStatus): string {
-  if (RESPONSE_STATUSES.has(status)) return "connected";
-  return status;
+  return RESPONSE_STATUSES.has(status) ? "connected" : status;
 }
-
 function getResponseValue(status: FundedStatus): string {
   return RESPONSE_STATUSES.has(status) ? status : "";
 }
-
-const STATUS_COLORS: Record<FundedStatus, string> = {
-  new:             "text-blue-400",
-  connection_sent: "text-purple-400",
-  connected:       "text-green-400",
-  replied:         "text-emerald-400",
-  interview:       "text-yellow-400",
-  closed:          "text-zinc-500",
-  skipped:         "text-zinc-500",
-  cant_find:       "text-red-400",
-};
+function getOutreachColor(status: FundedStatus): string {
+  const val = getOutreachValue(status);
+  return OUTREACH_OPTIONS.find(o => o.value === val)?.color ?? "text-zinc-400";
+}
+function getResponseColor(status: FundedStatus): string {
+  const val = getResponseValue(status);
+  return RESPONSE_OPTIONS.find(o => o.value === val)?.color ?? "text-zinc-500";
+}
 
 export default function FundedCompanyRow({
   lead,
@@ -83,26 +81,21 @@ export default function FundedCompanyRow({
   const contact    = lead.contacts;
   const isFollowUp = lead.follow_up_generated && lead.follow_up_message;
   const message    = isFollowUp ? lead.follow_up_message! : lead.linkedin_note || "";
-  const funding    = lead.funding_amount
+
+  const funding = lead.funding_amount
     ? `$${(lead.funding_amount / 1_000_000).toFixed(1)}M`
     : "—";
 
   const websiteUrl = company?.website
     ? (company.website.startsWith("http") ? company.website : "https://" + company.website)
-    : company?.domain
-    ? "https://" + company.domain
-    : null;
+    : company?.domain ? "https://" + company.domain : null;
 
-  const companyLinkedin = company?.linkedin_url || null;
-
-  // Fallback: CryptoRank profile page if no real website yet
   const companyPageUrl = websiteUrl
     || (lead.source === "cryptorank" && lead.raw_data?.key
       ? `https://cryptorank.io/ico/${lead.raw_data.key}`
       : null);
 
-  async function updateStatus(e: React.ChangeEvent<HTMLSelectElement>) {
-    const status = e.target.value as FundedStatus;
+  async function setStatus(status: FundedStatus) {
     await supabase
       .from("funded_leads")
       .update({ status, last_action_at: new Date().toISOString() })
@@ -123,15 +116,14 @@ export default function FundedCompanyRow({
     setEmailError(null);
     try {
       const res  = await fetch("/api/reveal-email", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ apollo_person_id: contact.apollo_person_id, contact_id: contact.id }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apollo_person_id: contact.apollo_person_id, contact_id: contact.id }),
       });
       const data = await res.json();
       if (data.email) setEmailResult(data.email);
       else setEmailError(data.error || "Could not retrieve email.");
     } catch {
-      setEmailError("Request failed. Try again.");
+      setEmailError("Request failed.");
     }
     setEmailLoading(false);
     setCreditsConfirm(false);
@@ -139,96 +131,72 @@ export default function FundedCompanyRow({
 
   return (
     <>
-      <tr className="border-b border-zinc-800 hover:bg-zinc-800/20 transition-colors">
+      {/* ── Main row ── */}
+      <tr className="hover:bg-zinc-800/20 transition-colors group">
+
         {/* Company */}
-        <td className="px-4 py-3 min-w-[160px]">
+        <td className="px-4 py-3 min-w-[170px]">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold text-zinc-100">{company?.name || "—"}</span>
+            <span className="text-sm font-medium text-zinc-100 leading-snug">
+              {company?.name || "—"}
+            </span>
             {companyPageUrl && (
-              <a
-                href={companyPageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-600 hover:text-zinc-300 shrink-0"
-                title={websiteUrl ? "Company website" : "View on CryptoRank"}
-              >
-                <Globe className="w-3.5 h-3.5" />
+              <a href={companyPageUrl} target="_blank" rel="noopener noreferrer"
+                className="text-zinc-600 hover:text-zinc-300 transition-colors shrink-0" title="Website">
+                <Globe className="w-3 h-3" />
               </a>
             )}
-            {companyLinkedin && (
-              <a
-                href={companyLinkedin}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-600 hover:text-blue-400 shrink-0"
-                title="Company LinkedIn"
-              >
-                <Linkedin className="w-3.5 h-3.5" />
+            {company?.linkedin_url && (
+              <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer"
+                className="text-zinc-600 hover:text-blue-400 transition-colors shrink-0" title="Company LinkedIn">
+                <Linkedin className="w-3 h-3" />
               </a>
             )}
           </div>
-          <div className="text-xs text-zinc-500 mt-0.5 flex items-center gap-1.5">
+          <div className="text-[11px] text-zinc-600 mt-0.5">
             {SOURCE_LABELS[lead.source] || lead.source}
-            {isFollowUp && <span className="text-amber-400">· Follow-up</span>}
+            {isFollowUp && <span className="text-amber-500 ml-1">· Follow-up</span>}
           </div>
         </td>
 
         {/* Funding */}
         <td className="px-4 py-3 whitespace-nowrap">
           <div className="text-sm font-semibold text-emerald-400">{funding}</div>
-          <div className="text-xs text-zinc-500">{lead.round_type}</div>
+          <div className="text-[11px] text-zinc-600">{lead.round_type}</div>
         </td>
 
         {/* Date */}
-        <td className="px-4 py-3 text-xs text-zinc-400 whitespace-nowrap">
-          {lead.announced_date
-            ? format(new Date(lead.announced_date + "T00:00:00"), "MMM d, yyyy")
-            : "—"}
+        <td className="px-4 py-3 whitespace-nowrap">
+          <span className="text-xs text-zinc-400">
+            {lead.announced_date
+              ? format(new Date(lead.announced_date + "T00:00:00"), "MMM d, yyyy")
+              : "—"}
+          </span>
         </td>
 
         {/* Contact */}
         <td className="px-4 py-3 min-w-[160px]">
           {contact ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <div className="min-w-0">
-                <div
-                  className="text-sm text-zinc-200 truncate max-w-[160px]"
-                  title={contact.name}
-                >
-                  {contact.name}
-                </div>
-                <div
-                  className="text-xs text-zinc-500 truncate max-w-[160px]"
-                  title={contact.title || ""}
-                >
-                  {contact.title}
-                </div>
+                <div className="text-sm text-zinc-200 truncate max-w-[140px]">{contact.name}</div>
+                <div className="text-[11px] text-zinc-600 truncate max-w-[140px]">{contact.title}</div>
               </div>
               {contact.linkedin_url && (
-                <a
-                  href={contact.linkedin_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-400 hover:text-blue-300 shrink-0"
-                  title="Open LinkedIn"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
+                <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer"
+                  className="text-blue-500 hover:text-blue-300 transition-colors shrink-0" title="LinkedIn">
+                  <ExternalLink className="w-3 h-3" />
                 </a>
               )}
               {contact.twitter_url && (
-                <a
-                  href={contact.twitter_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-zinc-500 hover:text-zinc-200 shrink-0"
-                  title="Open X (Twitter)"
-                >
-                  <Twitter className="w-3.5 h-3.5" />
+                <a href={contact.twitter_url} target="_blank" rel="noopener noreferrer"
+                  className="text-zinc-600 hover:text-zinc-200 transition-colors shrink-0" title="X (Twitter)">
+                  <Twitter className="w-3 h-3" />
                 </a>
               )}
             </div>
           ) : (
-            <span className="text-xs text-zinc-600 italic">No contact</span>
+            <span className="text-[11px] text-zinc-700 italic">No contact</span>
           )}
         </td>
 
@@ -236,16 +204,11 @@ export default function FundedCompanyRow({
         <td className="px-4 py-3">
           <select
             value={getOutreachValue(lead.status)}
-            onChange={e => {
-              const val = e.target.value as FundedStatus;
-              updateStatus({ target: { value: val } } as React.ChangeEvent<HTMLSelectElement>);
-            }}
-            className="bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer focus:outline-none focus:border-zinc-500 transition-colors text-zinc-300"
+            onChange={e => setStatus(e.target.value as FundedStatus)}
+            className={`bg-transparent border-0 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-zinc-600 rounded px-1 py-0.5 ${getOutreachColor(lead.status)}`}
           >
-            {OUTREACH_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value} className="text-zinc-200 bg-zinc-800">
-                {opt.label}
-              </option>
+            {OUTREACH_OPTIONS.map(o => (
+              <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>
             ))}
           </select>
         </td>
@@ -254,59 +217,57 @@ export default function FundedCompanyRow({
         <td className="px-4 py-3">
           <select
             value={getResponseValue(lead.status)}
-            onChange={e => {
-              const val = e.target.value;
-              if (val) updateStatus({ target: { value: val } } as React.ChangeEvent<HTMLSelectElement>);
-            }}
-            className="bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer focus:outline-none focus:border-zinc-500 transition-colors text-zinc-300"
+            onChange={e => { if (e.target.value) setStatus(e.target.value as FundedStatus); }}
+            className={`bg-transparent border-0 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-zinc-600 rounded px-1 py-0.5 ${getResponseColor(lead.status)}`}
           >
-            {RESPONSE_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value} className="text-zinc-200 bg-zinc-800">
-                {opt.label}
-              </option>
+            {RESPONSE_OPTIONS.map(o => (
+              <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>
             ))}
           </select>
         </td>
 
-        {/* Expand toggle */}
+        {/* Expand */}
         <td className="px-4 py-3">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="text-zinc-600 hover:text-zinc-300 transition-colors"
-            title="Show details"
+            className="text-zinc-700 hover:text-zinc-400 transition-colors"
           >
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
         </td>
       </tr>
 
-      {/* Expanded detail row */}
+      {/* ── Expanded detail row ── */}
       {expanded && (
-        <tr className="border-b border-zinc-800 bg-zinc-900/60">
+        <tr className="bg-zinc-900/30 border-b border-zinc-800/40">
           <td colSpan={7} className="px-6 py-4">
-            <div className="space-y-4 max-w-2xl">
+            <div className="space-y-4 max-w-xl">
 
-              {/* LinkedIn / follow-up message */}
+              {/* Message */}
               {message && (
                 <div>
-                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">
-                    {isFollowUp ? "Follow-up Message" : "LinkedIn Message"}
-                  </p>
-                  <div className="bg-zinc-800 rounded-xl p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      {isFollowUp ? "Follow-up Message" : "LinkedIn Message"}
+                    </p>
+                    <CopyButton text={message} label="Copy" />
+                  </div>
+                  <div className="bg-zinc-800/60 rounded-lg p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
                     {message}
                   </div>
-                  <CopyButton text={message} label="Copy" className="mt-2" />
                 </div>
               )}
 
               {/* Email draft */}
               {lead.email_draft && (
                 <div>
-                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">Email Draft</p>
-                  <div className="bg-zinc-800 rounded-xl p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Email Draft</p>
+                    <CopyButton text={lead.email_draft} label="Copy" />
+                  </div>
+                  <div className="bg-zinc-800/60 rounded-lg p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto">
                     {lead.email_draft}
                   </div>
-                  <CopyButton text={lead.email_draft} label="Copy Email" className="mt-2" />
                 </div>
               )}
 
@@ -315,29 +276,25 @@ export default function FundedCompanyRow({
                 <div>
                   {!creditsConfirm ? (
                     <Button variant="ghost" onClick={() => setCreditsConfirm(true)}>
-                      <Mail className="w-4 h-4" /> Find Email
+                      <Mail className="w-3.5 h-3.5" /> Find Email
                     </Button>
                   ) : (
-                    <div className="bg-amber-900/20 border border-amber-800/50 rounded-xl p-3">
-                      <p className="text-sm text-amber-300 mb-3">
-                        This uses <strong>1 Apollo credit</strong>. Proceed?
-                      </p>
+                    <div className="bg-amber-900/20 border border-amber-800/40 rounded-lg p-3">
+                      <p className="text-xs text-amber-300 mb-2">Uses <strong>1 Apollo credit</strong>. Proceed?</p>
                       <div className="flex gap-2">
                         <Button variant="danger" onClick={handleRevealEmail} disabled={emailLoading}>
-                          {emailLoading ? "Loading..." : "Yes, reveal email"}
+                          {emailLoading ? "Loading..." : "Yes, reveal"}
                         </Button>
                         <Button variant="ghost" onClick={() => setCreditsConfirm(false)}>Cancel</Button>
                       </div>
                     </div>
                   )}
-                  {emailError && (
-                    <p className="text-xs text-red-400 mt-2">{emailError}</p>
-                  )}
+                  {emailError && <p className="text-xs text-red-400 mt-1">{emailError}</p>}
                 </div>
               )}
               {emailResult && (
                 <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-emerald-400" />
+                  <Mail className="w-3.5 h-3.5 text-emerald-400" />
                   <span className="text-sm text-emerald-300 font-medium">{emailResult}</span>
                   <CopyButton text={emailResult} label="Copy" />
                 </div>
@@ -345,18 +302,13 @@ export default function FundedCompanyRow({
 
               {/* Notes */}
               <div>
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">Notes</p>
+                <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Notes</p>
                 <Textarea value={notes} onChange={setNotes} placeholder="Add notes..." rows={2} />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={saveNotes}
-                  disabled={saveState !== "idle"}
-                  className="mt-2"
-                >
-                  {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved ✓" : "Save notes"}
+                <Button variant="ghost" size="sm" onClick={saveNotes} disabled={saveState !== "idle"} className="mt-1.5">
+                  {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved ✓" : "Save"}
                 </Button>
               </div>
+
             </div>
           </td>
         </tr>
