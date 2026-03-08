@@ -1,11 +1,8 @@
 "use client";
 import { useState } from "react";
-import { formatDistanceToNow } from "date-fns";
-import {
-  ChevronDown, ChevronUp, ExternalLink,
-  Mail, Clock, AlertCircle, Briefcase
-} from "lucide-react";
-import { Badge, Button, Divider, Textarea, cn } from "./ui";
+import { format } from "date-fns";
+import { ExternalLink, ChevronDown, ChevronUp, Mail, Globe, Linkedin, Twitter } from "lucide-react";
+import { Button, Textarea } from "./ui";
 import CopyButton from "./CopyButton";
 import type { JobPosting, AppStatus, OutreachStatus } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
@@ -13,40 +10,41 @@ import { supabase } from "@/lib/supabase";
 const SOURCE_LABELS: Record<string, string> = {
   web3career:         "Web3.career",
   cryptojobslist:     "CryptoJobsList",
-  cryptocurrencyjobs: "Cryptocurrency Jobs",
+  cryptocurrencyjobs: "CryptocurrencyJobs",
 };
 
-const REMOTE_LABELS = {
-  global:  { label: "🌍 Global Remote", variant: "green"  as const },
-  us_only: { label: "🇺🇸 US Only",       variant: "yellow" as const },
-  unclear: { label: "❓ Unclear",        variant: "gray"   as const },
+// ── Application dropdown ──────────────────────────────────────────────────────
+const APP_OPTIONS: { value: AppStatus; label: string; color: string }[] = [
+  { value: "new",       label: "Not Applied", color: "text-zinc-400"    },
+  { value: "applied",   label: "Applied",     color: "text-blue-400"    },
+  { value: "follow_up", label: "Follow Up",   color: "text-amber-400"   },
+  { value: "interview", label: "Interview",   color: "text-yellow-400"  },
+  { value: "offer",     label: "Offer",       color: "text-emerald-400" },
+  { value: "rejected",  label: "Rejected",    color: "text-red-400"     },
+  { value: "skipped",   label: "Skipped",     color: "text-zinc-600"    },
+];
+
+// ── Outreach dropdown ─────────────────────────────────────────────────────────
+const OUTREACH_OPTIONS: { value: OutreachStatus; label: string; color: string }[] = [
+  { value: "new",             label: "Not Sent",   color: "text-zinc-400"   },
+  { value: "connection_sent", label: "Sent",       color: "text-indigo-400" },
+  { value: "connected",       label: "Connected",  color: "text-blue-400"   },
+  { value: "replied",         label: "Replied",    color: "text-emerald-400"},
+  { value: "conversation",    label: "Talking",    color: "text-emerald-300"},
+  { value: "cant_find",       label: "Can't Find", color: "text-red-400"    },
+];
+
+const REMOTE_LABELS: Record<string, string> = {
+  global:  "🌍 Global",
+  us_only: "🇺🇸 US Only",
+  unclear: "Unclear",
 };
 
-const MATCH_LABELS = {
-  strong:  { label: "✅ Strong Match", variant: "green"  as const },
-  stretch: { label: "🟡 Stretch",      variant: "yellow" as const },
-};
+function getColor(options: { value: string; color: string }[], val: string) {
+  return options.find(o => o.value === val)?.color ?? "text-zinc-400";
+}
 
-const APP_STATUS_CONFIG: Record<AppStatus, { label: string; color: string }> = {
-  new:        { label: "Not Applied",  color: "blue"   },
-  applied:    { label: "Applied",      color: "green"  },
-  follow_up:  { label: "Follow Up",    color: "yellow" },
-  interview:  { label: "Interview",    color: "purple" },
-  offer:      { label: "Offer",        color: "green"  },
-  rejected:   { label: "Rejected",     color: "red"    },
-  skipped:    { label: "Skipped",      color: "gray"   },
-};
-
-const OUT_STATUS_CONFIG: Record<OutreachStatus, { label: string; color: string }> = {
-  new:             { label: "Not Sent",         color: "blue"   },
-  connection_sent: { label: "Connection Sent",  color: "purple" },
-  connected:       { label: "Connected",        color: "green"  },
-  replied:         { label: "Replied",          color: "green"  },
-  conversation:    { label: "Conversation",     color: "green"  },
-  cant_find:       { label: "Can't Find",       color: "red"    },
-};
-
-export default function JobPostingCard({
+export default function JobPostingRow({
   job,
   onUpdate,
 }: {
@@ -54,29 +52,29 @@ export default function JobPostingCard({
   onUpdate: (id: string, updates: Partial<JobPosting>) => void;
 }) {
   const [expanded, setExpanded]         = useState(false);
-  const [showCoverLetter, setShowCL]    = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailResult, setEmailResult]   = useState<string | null>(job.contacts?.email || null);
+  const [emailError, setEmailError]     = useState<string | null>(null);
   const [creditsConfirm, setCreditsConfirm] = useState(false);
   const [notes, setNotes]               = useState(job.notes || "");
-  const [saving, setSaving]             = useState(false);
+  const [saveState, setSaveState]       = useState<"idle" | "saving" | "saved">("idle");
 
-  const company   = job.companies;
-  const contact   = job.contacts;
-  const remote    = REMOTE_LABELS[job.remote_scope];
-  const match     = MATCH_LABELS[job.experience_match];
-  const appCfg    = APP_STATUS_CONFIG[job.application_status];
-  const outCfg    = OUT_STATUS_CONFIG[job.outreach_status];
+  const company    = job.companies;
+  const contact    = job.contacts;
   const isFollowUp = job.follow_up_generated && job.follow_up_message;
+  const message    = isFollowUp ? job.follow_up_message! : job.linkedin_note || "";
 
   const salary = (() => {
     if (!job.salary_min && !job.salary_max) return null;
     const cur = job.salary_currency || "USD";
-    if (job.salary_min && job.salary_max) {
-      return `${cur} ${(job.salary_min / 1000).toFixed(0)}k–${(job.salary_max / 1000).toFixed(0)}k`;
-    }
-    return `${cur} ${((job.salary_min || job.salary_max)! / 1000).toFixed(0)}k+`;
+    if (job.salary_min && job.salary_max)
+      return `${(job.salary_min / 1000).toFixed(0)}k–${(job.salary_max / 1000).toFixed(0)}k`;
+    return `${((job.salary_min || job.salary_max)! / 1000).toFixed(0)}k+`;
   })();
+
+  const websiteUrl = company?.website
+    ? (company.website.startsWith("http") ? company.website : "https://" + company.website)
+    : company?.domain ? "https://" + company.domain : null;
 
   async function updateApp(status: AppStatus) {
     await supabase.from("job_postings").update({
@@ -95,277 +93,260 @@ export default function JobPostingCard({
   }
 
   async function saveNotes() {
-    setSaving(true);
+    setSaveState("saving");
     await supabase.from("job_postings").update({ notes }).eq("id", job.id);
-    setSaving(false);
+    setSaveState("saved");
+    setTimeout(() => setSaveState("idle"), 2000);
   }
 
   async function handleRevealEmail() {
     if (!contact?.apollo_person_id) return;
     setEmailLoading(true);
+    setEmailError(null);
     try {
-      const res = await fetch("/api/reveal-email", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          apollo_person_id: contact.apollo_person_id,
-          contact_id:       contact.id,
-        }),
+      const res  = await fetch("/api/reveal-email", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apollo_person_id: contact.apollo_person_id, contact_id: contact.id }),
       });
       const data = await res.json();
-      if (data.email) {
-        setEmailResult(data.email);
-      } else {
-        alert(data.error || "Could not retrieve email.");
-      }
+      if (data.email) setEmailResult(data.email);
+      else setEmailError(data.error || "Could not retrieve email.");
     } catch {
-      alert("Request failed.");
+      setEmailError("Request failed.");
     }
     setEmailLoading(false);
     setCreditsConfirm(false);
   }
 
-  const messageToShow = isFollowUp ? job.follow_up_message! : job.linkedin_note || "";
-
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-      {/* Header */}
-      <div className="p-4">
-        <div className="flex items-start gap-2 mb-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-              <Badge variant={appCfg.color as "blue" | "green" | "yellow" | "purple" | "red" | "gray"}>
-                App: {appCfg.label}
-              </Badge>
-              <Badge variant={outCfg.color as "blue" | "purple" | "green" | "yellow" | "red" | "gray"}>
-                Out: {outCfg.label}
-              </Badge>
-              {isFollowUp && (
-                <Badge variant="yellow">
-                  <Clock className="w-3 h-3 mr-1" />Follow Up
-                </Badge>
-              )}
-            </div>
-            <h3 className="text-base font-bold text-zinc-100">{job.job_title}</h3>
-            <p className="text-sm text-zinc-400">{company?.name}</p>
+    <>
+      {/* ── Main row ── */}
+      <tr className="hover:bg-zinc-800/20 transition-colors group">
+
+        {/* Role + Company */}
+        <td className="px-4 py-3 min-w-[200px]">
+          <div className="flex items-center gap-1.5">
+            <a href={job.job_url} target="_blank" rel="noopener noreferrer"
+              className="text-sm font-medium text-zinc-100 leading-snug hover:text-indigo-300 transition-colors">
+              {job.job_title}
+            </a>
+            <ExternalLink className="w-3 h-3 text-zinc-700 group-hover:text-zinc-500 shrink-0" />
           </div>
-        </div>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="text-[11px] text-zinc-500">{company?.name || "—"}</span>
+            {websiteUrl && (
+              <a href={websiteUrl} target="_blank" rel="noopener noreferrer"
+                className="text-zinc-700 hover:text-zinc-400 transition-colors shrink-0">
+                <Globe className="w-2.5 h-2.5" />
+              </a>
+            )}
+            {company?.linkedin_url && (
+              <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer"
+                className="text-zinc-700 hover:text-blue-400 transition-colors shrink-0">
+                <Linkedin className="w-2.5 h-2.5" />
+              </a>
+            )}
+          </div>
+          <div className="text-[11px] text-zinc-700 mt-0.5">
+            {SOURCE_LABELS[job.source] || job.source}
+            {isFollowUp && <span className="text-amber-500 ml-1">· Follow-up</span>}
+          </div>
+        </td>
 
-        {/* Meta row */}
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          <Badge variant={remote.variant}>{remote.label}</Badge>
-          <Badge variant={match.variant}>{match.label}</Badge>
-          {salary && <Badge variant="gray">{salary}</Badge>}
-          <Badge variant="gray">{SOURCE_LABELS[job.source] || job.source}</Badge>
-        </div>
+        {/* Remote */}
+        <td className="px-4 py-3 whitespace-nowrap">
+          <span className="text-xs text-zinc-400">{REMOTE_LABELS[job.remote_scope] || "—"}</span>
+        </td>
 
-        {/* Posted time */}
-        {job.posted_at && (
-          <p className="text-xs text-zinc-600 mt-2">
-            Posted {formatDistanceToNow(new Date(job.posted_at))} ago
-          </p>
-        )}
-
-        {/* Key requirements */}
-        {job.description_summary && (
-          <ul className="mt-3 space-y-1">
-            {job.description_summary.split("\n").filter(Boolean).map((b, i) => (
-              <li key={i} className="flex gap-2 text-sm text-zinc-400">
-                <span className="text-indigo-500 mt-0.5 shrink-0">›</span>
-                {b.replace(/^[-•]\s*/, "")}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Apply button */}
-        <a
-          href={job.job_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 flex items-center gap-2 w-full justify-center bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
-        >
-          <Briefcase className="w-4 h-4" />
-          Open Job Posting
-          <ExternalLink className="w-3.5 h-3.5 opacity-70" />
-        </a>
-      </div>
-
-      {/* Expand toggle */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-2.5 bg-zinc-800/50 hover:bg-zinc-800 transition-colors text-sm text-zinc-400 border-t border-zinc-800"
-      >
-        <span>Cover Letter, Outreach &amp; Actions</span>
-        {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-      </button>
-
-      {expanded && (
-        <div className="p-4 space-y-4 border-t border-zinc-800">
-          {/* Cover letter */}
-          {job.cover_letter && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Cover Letter</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowCL(!showCoverLetter)}
-                    className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
-                  >
-                    {showCoverLetter ? "Collapse" : "Expand"}
-                  </button>
-                  <CopyButton text={job.cover_letter} label="Copy" />
-                </div>
-              </div>
-              {showCoverLetter && (
-                <div className="bg-zinc-800 rounded-xl p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap max-h-56 overflow-y-auto">
-                  {job.cover_letter}
-                </div>
-              )}
-            </div>
+        {/* Salary */}
+        <td className="px-4 py-3 whitespace-nowrap">
+          {salary ? (
+            <span className="text-sm font-semibold text-emerald-400">{salary}</span>
+          ) : (
+            <span className="text-xs text-zinc-700">—</span>
           )}
+        </td>
 
-          {/* Contact */}
-          {contact && (
-            <div className="flex items-center justify-between gap-2 bg-zinc-800 rounded-xl p-3">
-              <div>
-                <p className="text-sm font-medium text-zinc-200">{contact.name}</p>
-                <p className="text-xs text-zinc-500">{contact.title}</p>
+        {/* Posted */}
+        <td className="px-4 py-3 whitespace-nowrap">
+          <span className="text-xs text-zinc-400">
+            {job.posted_at
+              ? format(new Date(job.posted_at), "MMM d, yyyy")
+              : "—"}
+          </span>
+        </td>
+
+        {/* Contact */}
+        <td className="px-4 py-3 min-w-[140px]">
+          {contact ? (
+            <div className="flex items-center gap-1.5">
+              <div className="min-w-0">
+                <div className="text-sm text-zinc-200 truncate max-w-[120px]">{contact.name}</div>
+                <div className="text-[11px] text-zinc-600 truncate max-w-[120px]">{contact.title}</div>
               </div>
               {contact.linkedin_url && (
-                <a
-                  href={contact.linkedin_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 border border-blue-800/50 rounded-lg text-xs font-medium transition-colors"
-                >
-                  <ExternalLink className="w-3 h-3" />LinkedIn
+                <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer"
+                  className="text-blue-500 hover:text-blue-300 transition-colors shrink-0">
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+              {contact.twitter_url && (
+                <a href={contact.twitter_url} target="_blank" rel="noopener noreferrer"
+                  className={`transition-colors shrink-0 ${
+                    contact.twitter_confidence === "high"
+                      ? "text-blue-400 hover:text-blue-300"
+                      : "text-yellow-500 hover:text-yellow-300"
+                  }`}>
+                  <Twitter className="w-3 h-3" />
                 </a>
               )}
             </div>
+          ) : (
+            <span className="text-[11px] text-zinc-700 italic">No contact</span>
           )}
+        </td>
 
-          {/* LinkedIn message */}
-          {messageToShow && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-                  {isFollowUp ? "Follow-up Message" : "LinkedIn Message"}
-                </p>
-                <CopyButton text={messageToShow} label="Copy" />
-              </div>
-              <div className="bg-zinc-800 rounded-xl p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                {messageToShow}
-              </div>
-            </div>
-          )}
+        {/* Application dropdown */}
+        <td className="px-4 py-3">
+          <select
+            value={job.application_status}
+            onChange={e => updateApp(e.target.value as AppStatus)}
+            className={`bg-transparent border-0 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-zinc-600 rounded px-1 py-0.5 ${getColor(APP_OPTIONS, job.application_status)}`}
+          >
+            {APP_OPTIONS.map(o => (
+              <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>
+            ))}
+          </select>
+        </td>
 
-          {/* Email draft */}
-          {job.email_draft && (
-            <div>
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">Email Draft</p>
-              <div className="bg-zinc-800 rounded-xl p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
-                {job.email_draft}
-              </div>
-              <CopyButton text={job.email_draft} label="Copy Email" className="mt-2" />
-            </div>
-          )}
+        {/* Outreach dropdown */}
+        <td className="px-4 py-3">
+          <select
+            value={job.outreach_status}
+            onChange={e => updateOutreach(e.target.value as OutreachStatus)}
+            className={`bg-transparent border-0 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-zinc-600 rounded px-1 py-0.5 ${getColor(OUTREACH_OPTIONS, job.outreach_status)}`}
+          >
+            {OUTREACH_OPTIONS.map(o => (
+              <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>
+            ))}
+          </select>
+        </td>
 
-          {/* Find Email */}
-          {contact?.apollo_person_id && !emailResult && (
-            <div>
-              {!creditsConfirm ? (
-                <Button variant="ghost" onClick={() => setCreditsConfirm(true)}>
-                  <Mail className="w-4 h-4" />Find Email
-                </Button>
-              ) : (
-                <div className="bg-amber-900/20 border border-amber-800/50 rounded-xl p-3">
-                  <p className="text-sm text-amber-300 mb-3">
-                    Uses <strong>1 Apollo credit</strong>. Proceed?
-                  </p>
-                  <div className="flex gap-2">
-                    <Button variant="danger" onClick={handleRevealEmail} disabled={emailLoading}>
-                      {emailLoading ? "Loading..." : "Yes, reveal"}
-                    </Button>
-                    <Button variant="ghost" onClick={() => setCreditsConfirm(false)}>Cancel</Button>
+        {/* Expand */}
+        <td className="px-4 py-3">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-zinc-700 hover:text-zinc-400 transition-colors"
+          >
+            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+        </td>
+      </tr>
+
+      {/* ── Expanded detail row ── */}
+      {expanded && (
+        <tr className="bg-zinc-900/30 border-b border-zinc-800/40">
+          <td colSpan={8} className="px-6 py-4">
+            <div className="space-y-4 max-w-xl">
+
+              {/* Job summary */}
+              {job.description_summary && (
+                <div>
+                  <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Summary</p>
+                  <ul className="space-y-1">
+                    {job.description_summary.split("\n").filter(Boolean).map((b, i) => (
+                      <li key={i} className="flex gap-2 text-sm text-zinc-400">
+                        <span className="text-indigo-500 mt-0.5 shrink-0">›</span>
+                        {b.replace(/^[-•]\s*/, "")}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Cover Letter */}
+              {job.cover_letter && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Cover Letter</p>
+                    <CopyButton text={job.cover_letter} label="Copy" />
+                  </div>
+                  <div className="bg-zinc-800/60 rounded-lg p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto">
+                    {job.cover_letter}
                   </div>
                 </div>
               )}
-            </div>
-          )}
-          {emailResult && (
-            <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-emerald-400" />
-              <span className="text-sm text-emerald-300 font-medium">{emailResult}</span>
-              <CopyButton text={emailResult} label="Copy" />
-            </div>
-          )}
 
-          {/* Notes */}
-          <div>
-            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">Notes</p>
-            <Textarea value={notes} onChange={setNotes} placeholder="Add notes..." rows={2} />
-            <Button variant="ghost" size="sm" onClick={saveNotes} disabled={saving} className="mt-2">
-              {saving ? "Saving..." : "Save notes"}
-            </Button>
-          </div>
+              {/* LinkedIn message */}
+              {message && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      {isFollowUp ? "Follow-up Message" : "LinkedIn Message"}
+                    </p>
+                    <CopyButton text={message} label="Copy" />
+                  </div>
+                  <div className="bg-zinc-800/60 rounded-lg p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                    {message}
+                  </div>
+                </div>
+              )}
 
-          {/* Status actions */}
-          <Divider />
-          <div className="space-y-3">
-            <div>
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">Application</p>
-              <div className="flex flex-wrap gap-2">
-                {job.application_status === "new" && (
-                  <>
-                    <Button variant="success" onClick={() => updateApp("applied")}>✅ Applied</Button>
-                    <Button variant="ghost" onClick={() => updateApp("skipped")}>⏭ Skip</Button>
-                  </>
-                )}
-                {job.application_status === "applied" && (
-                  <Button variant="success" onClick={() => updateApp("interview")}>📅 Interview</Button>
-                )}
-                {job.application_status === "interview" && (
-                  <>
-                    <Button variant="success" onClick={() => updateApp("offer")}>🎉 Offer</Button>
-                    <Button variant="danger" onClick={() => updateApp("rejected")}>❌ Rejected</Button>
-                  </>
-                )}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">Outreach</p>
-              <div className="flex flex-wrap gap-2">
-                {job.outreach_status === "new" && (
-                  <>
-                    <Button variant="success" onClick={() => updateOutreach("connection_sent")}>
-                      ✅ Connection Sent
+              {/* Email draft */}
+              {job.email_draft && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Email Draft</p>
+                    <CopyButton text={job.email_draft} label="Copy" />
+                  </div>
+                  <div className="bg-zinc-800/60 rounded-lg p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto">
+                    {job.email_draft}
+                  </div>
+                </div>
+              )}
+
+              {/* Find Email */}
+              {contact?.apollo_person_id && !emailResult && (
+                <div>
+                  {!creditsConfirm ? (
+                    <Button variant="ghost" onClick={() => setCreditsConfirm(true)}>
+                      <Mail className="w-3.5 h-3.5" /> Find Email
                     </Button>
-                    <Button variant="ghost" onClick={() => updateOutreach("cant_find")}>
-                      ❌ Can't Find
-                    </Button>
-                  </>
-                )}
-                {job.outreach_status === "connection_sent" && (
-                  <Button variant="success" onClick={() => updateOutreach("connected")}>
-                    ✅ Connected
-                  </Button>
-                )}
-                {job.outreach_status === "connected" && (
-                  <Button variant="success" onClick={() => updateOutreach("replied")}>
-                    💬 Replied
-                  </Button>
-                )}
-                {job.outreach_status === "replied" && (
-                  <Button variant="success" onClick={() => updateOutreach("conversation")}>
-                    🗨 In Conversation
-                  </Button>
-                )}
+                  ) : (
+                    <div className="bg-amber-900/20 border border-amber-800/40 rounded-lg p-3">
+                      <p className="text-xs text-amber-300 mb-2">Uses <strong>1 Apollo credit</strong>. Proceed?</p>
+                      <div className="flex gap-2">
+                        <Button variant="danger" onClick={handleRevealEmail} disabled={emailLoading}>
+                          {emailLoading ? "Loading..." : "Yes, reveal"}
+                        </Button>
+                        <Button variant="ghost" onClick={() => setCreditsConfirm(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
+                  {emailError && <p className="text-xs text-red-400 mt-1">{emailError}</p>}
+                </div>
+              )}
+              {emailResult && (
+                <div className="flex items-center gap-2">
+                  <Mail className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-sm text-emerald-300 font-medium">{emailResult}</span>
+                  <CopyButton text={emailResult} label="Copy" />
+                </div>
+              )}
+
+              {/* Notes */}
+              <div>
+                <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Notes</p>
+                <Textarea value={notes} onChange={setNotes} placeholder="Add notes..." rows={2} />
+                <Button variant="ghost" size="sm" onClick={saveNotes} disabled={saveState !== "idle"} className="mt-1.5">
+                  {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved ✓" : "Save"}
+                </Button>
               </div>
+
             </div>
-          </div>
-        </div>
+          </td>
+        </tr>
       )}
-    </div>
+    </>
   );
 }
