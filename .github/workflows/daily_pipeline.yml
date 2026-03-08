@@ -32,6 +32,7 @@ jobs:
           APOLLO_API_KEY:       ${{ secrets.APOLLO_API_KEY }}
           CRYPTORANK_API_KEY:   ${{ secrets.CRYPTORANK_API_KEY }}
           WEB3CAREER_API_KEY:   ${{ secrets.WEB3CAREER_API_KEY }}
+          BRAVE_API_KEY:        ${{ secrets.BRAVE_API_KEY }}
         run: python -m pipeline.main
 
       - name: Notify on failure
