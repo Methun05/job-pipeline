@@ -14,6 +14,7 @@ const SOURCE_LABELS: Record<string, string> = {
   web3career:         "Web3.career",
   cryptojobslist:     "CryptoJobsList",
   cryptocurrencyjobs: "Cryptocurrency Jobs",
+  lever:              "Lever",
 };
 
 const REMOTE_LABELS = {
