@@ -27,7 +27,7 @@ from pipeline.config import (
 )
 
 from pipeline.fetchers import (
-    cryptorank_scraper, crypto_rss, techcrunch_rss, eu_startups_rss,
+    cryptorank_scraper, crypto_rss, techcrunch_rss, eu_startups_rss, crunchbase_rss,
     web3career, cryptojobslist_rss, cryptocurrencyjobs_rss,
 )
 
@@ -389,6 +389,7 @@ def main():
         ("techcrunch_rss",  techcrunch_rss.fetch,  "techcrunch"),
         ("eu_startups_rss", eu_startups_rss.fetch, "eu_startups"),
         ("crypto_rss",      crypto_rss.fetch,      None),   # source name comes from article
+        ("crunchbase_rss",  crunchbase_rss.fetch,  "crunchbase"),
     ]
     for fetcher_name, fetcher_fn, default_source in rss_sources:
         try:
