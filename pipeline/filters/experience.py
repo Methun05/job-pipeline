@@ -16,7 +16,7 @@ YEARS_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-SENIOR_KEYWORDS    = re.compile(r'\b(senior|sr\.?)\b', re.IGNORECASE)
+SENIOR_KEYWORDS    = re.compile(r'\b(senior|sr\.?|principal|staff)\b', re.IGNORECASE)
 MID_KEYWORDS       = re.compile(r'\b(mid[\-\s]?level|mid[\-\s]?senior|intermediate)\b', re.IGNORECASE)
 JUNIOR_KEYWORDS    = re.compile(r'\b(junior|jr\.?|entry[\-\s]?level|graduate|intern)\b', re.IGNORECASE)
 

@@ -87,6 +87,7 @@ DESIGN_ROLE_KEYWORDS = [
 SKIP_TIER_KEYWORDS = [
     "staff designer",
     "principal designer",
+    "principal product designer",
     "design director",
     "director of design",
     "vp of design",

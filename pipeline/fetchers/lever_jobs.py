@@ -10,10 +10,10 @@ API: GET https://api.lever.co/v0/postings/{slug}?mode=json
 import time
 import re
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import pipeline.db as db
-from pipeline.config import LEVER_COMPANIES, DESIGN_ROLE_KEYWORDS, HTTP_TIMEOUT
+from pipeline.config import LEVER_COMPANIES, DESIGN_ROLE_KEYWORDS, HTTP_TIMEOUT, TRACK_B_HOURS_WINDOW
 
 BASE_URL = "https://api.lever.co/v0/postings"
 
@@ -97,6 +97,8 @@ def _fetch_slug(slug: str) -> list[dict]:
     if not isinstance(data, list):
         return []
 
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=TRACK_B_HOURS_WINDOW)
+
     results = []
     for posting in data:
         if not isinstance(posting, dict):
@@ -106,6 +108,12 @@ def _fetch_slug(slug: str) -> list[dict]:
         job_url = posting.get("hostedUrl", "")
         if not job_url:
             continue
+        # Date filter — skip jobs older than TRACK_B_HOURS_WINDOW
+        created_ms = posting.get("createdAt")
+        if created_ms:
+            posted_at = datetime.fromtimestamp(int(created_ms) / 1000, tz=timezone.utc)
+            if posted_at < cutoff:
+                continue
         results.append(_parse_posting(posting, slug))
 
     return results
