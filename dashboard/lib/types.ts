@@ -28,6 +28,7 @@ export interface Contact {
   name: string;
   title: string | null;
   linkedin_url: string | null;
+  twitter_url: string | null;
   seniority: string | null;
   email: string | null;
   email_revealed: boolean;

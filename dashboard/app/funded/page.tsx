@@ -199,7 +199,10 @@ export default function FundedPage() {
                     Contact
                   </th>
                   <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-                    Status
+                    Outreach
+                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+                    Response
                   </th>
                   <th className="px-4 py-3 w-10" />
                 </tr>

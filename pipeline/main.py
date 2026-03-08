@@ -22,6 +22,7 @@ import pipeline.generator as gen
 from pipeline.dedup.matcher import find_company_match, normalize_domain
 from pipeline.filters.experience import classify_experience
 from pipeline.filters.remote_scope import detect_remote_scope
+from pipeline.enrichment.twitter_finder import find_twitter_handle
 from pipeline.config import (
     DESIGN_ROLE_KEYWORDS, FUNDING_MIN_USD, FUNDING_MAX_USD, NINETY_DAY_RESET, GEMINI_ENABLED
 )
@@ -129,6 +130,14 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
                 contact_id = existing_contact["id"]
             else:
                 contact_insert = {k: v for k, v in contact_data.items() if not k.startswith("org_")}
+                # Twitter enrichment
+                try:
+                    twitter_url = find_twitter_handle(contact_data.get("name", ""), name)
+                    if twitter_url:
+                        contact_insert["twitter_url"] = twitter_url
+                        print(f"[Twitter] Found: {twitter_url}")
+                except Exception:
+                    pass
                 contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
             contact_name  = contact_data.get("name", "")
             contact_title = contact_data.get("title", "")
@@ -237,6 +246,14 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
                 contact_id = existing_contact["id"]
             else:
                 contact_insert = {k: v for k, v in contact_data.items() if not k.startswith("org_")}
+                # Twitter enrichment
+                try:
+                    twitter_url = find_twitter_handle(contact_data.get("name", ""), name)
+                    if twitter_url:
+                        contact_insert["twitter_url"] = twitter_url
+                        print(f"[Twitter] Found: {twitter_url}")
+                except Exception:
+                    pass
                 contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
             contact_name  = contact_data.get("name", "")
             contact_title = contact_data.get("title", "")

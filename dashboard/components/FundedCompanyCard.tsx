@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { format } from "date-fns";
-import { ExternalLink, ChevronDown, ChevronUp, Mail, Globe, Linkedin } from "lucide-react";
+import { ExternalLink, ChevronDown, ChevronUp, Mail, Globe, Linkedin, Twitter } from "lucide-react";
 import { Button, Textarea } from "./ui";
 import CopyButton from "./CopyButton";
 import type { FundedLead, FundedStatus } from "@/lib/types";
@@ -26,6 +26,32 @@ export const STATUS_OPTIONS: { value: FundedStatus; label: string }[] = [
   { value: "skipped",         label: "Skipped" },
   { value: "cant_find",       label: "Can't Find" },
 ];
+
+const OUTREACH_OPTIONS = [
+  { value: "new",             label: "Not Sent" },
+  { value: "connection_sent", label: "Sent" },
+  { value: "connected",       label: "Connected" },
+  { value: "cant_find",       label: "Can't Find" },
+];
+
+const RESPONSE_OPTIONS = [
+  { value: "",          label: "—" },
+  { value: "replied",   label: "Replied" },
+  { value: "interview", label: "Interview" },
+  { value: "closed",    label: "Closed" },
+  { value: "skipped",   label: "Skipped" },
+];
+
+const RESPONSE_STATUSES = new Set(["replied", "interview", "closed", "skipped"]);
+
+function getOutreachValue(status: FundedStatus): string {
+  if (RESPONSE_STATUSES.has(status)) return "connected";
+  return status;
+}
+
+function getResponseValue(status: FundedStatus): string {
+  return RESPONSE_STATUSES.has(status) ? status : "";
+}
 
 const STATUS_COLORS: Record<FundedStatus, string> = {
   new:             "text-blue-400",
@@ -189,20 +215,52 @@ export default function FundedCompanyRow({
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               )}
+              {contact.twitter_url && (
+                <a
+                  href={contact.twitter_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-zinc-500 hover:text-zinc-200 shrink-0"
+                  title="Open X (Twitter)"
+                >
+                  <Twitter className="w-3.5 h-3.5" />
+                </a>
+              )}
             </div>
           ) : (
             <span className="text-xs text-zinc-600 italic">No contact</span>
           )}
         </td>
 
-        {/* Status dropdown */}
+        {/* Outreach dropdown */}
         <td className="px-4 py-3">
           <select
-            value={lead.status}
-            onChange={updateStatus}
-            className={`bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer focus:outline-none focus:border-zinc-500 transition-colors ${STATUS_COLORS[lead.status]}`}
+            value={getOutreachValue(lead.status)}
+            onChange={e => {
+              const val = e.target.value as FundedStatus;
+              updateStatus({ target: { value: val } } as React.ChangeEvent<HTMLSelectElement>);
+            }}
+            className="bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer focus:outline-none focus:border-zinc-500 transition-colors text-zinc-300"
           >
-            {STATUS_OPTIONS.map(opt => (
+            {OUTREACH_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value} className="text-zinc-200 bg-zinc-800">
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </td>
+
+        {/* Response dropdown */}
+        <td className="px-4 py-3">
+          <select
+            value={getResponseValue(lead.status)}
+            onChange={e => {
+              const val = e.target.value;
+              if (val) updateStatus({ target: { value: val } } as React.ChangeEvent<HTMLSelectElement>);
+            }}
+            className="bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer focus:outline-none focus:border-zinc-500 transition-colors text-zinc-300"
+          >
+            {RESPONSE_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value} className="text-zinc-200 bg-zinc-800">
                 {opt.label}
               </option>
@@ -225,22 +283,8 @@ export default function FundedCompanyRow({
       {/* Expanded detail row */}
       {expanded && (
         <tr className="border-b border-zinc-800 bg-zinc-900/60">
-          <td colSpan={6} className="px-6 py-4">
+          <td colSpan={7} className="px-6 py-4">
             <div className="space-y-4 max-w-2xl">
-
-              {/* Investors */}
-              {lead.raw_data?.funds && lead.raw_data.funds.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">Investors</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {lead.raw_data.funds.map((fund: string) => (
-                      <span key={fund} className="px-2 py-0.5 bg-zinc-800 text-zinc-300 text-xs rounded-md">
-                        {fund}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* LinkedIn / follow-up message */}
               {message && (
