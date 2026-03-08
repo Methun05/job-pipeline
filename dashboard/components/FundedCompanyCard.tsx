@@ -76,7 +76,7 @@ export default function FundedCompanyRow({
   const [notes, setNotes]                   = useState(lead.notes || "");
   const [saveState, setSaveState]           = useState<"idle" | "saving" | "saved">("idle");
   const [creditsConfirm, setCreditsConfirm] = useState(false);
-  const [twitterConf, setTwitterConf]       = useState(contact?.twitter_confidence ?? null);
+  const [twitterConf, setTwitterConf]       = useState(lead.contacts?.twitter_confidence ?? null);
 
   const company    = lead.companies;
   const contact    = lead.contacts;
