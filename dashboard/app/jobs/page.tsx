@@ -136,6 +136,7 @@ export default function JobsPage() {
               <thead>
                 <tr className="border-b border-zinc-800/60 bg-zinc-900/40">
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Role</th>
+                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Source</th>
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Company</th>
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Remote</th>
                   <th
@@ -152,6 +153,7 @@ export default function JobsPage() {
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Contact</th>
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Application</th>
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Outreach</th>
+                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Open</th>
                   <th className="px-4 py-2.5 w-8" />
                 </tr>
               </thead>

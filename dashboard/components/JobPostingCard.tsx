@@ -125,19 +125,15 @@ export default function JobPostingRow({
 
         {/* Role */}
         <td className="px-4 py-3 min-w-[180px]">
-          <a
-            href={job.job_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-zinc-700/60 bg-zinc-800/60 hover:bg-zinc-700/60 hover:border-zinc-600 transition-colors text-xs font-medium text-zinc-200"
-          >
+          <span className="text-sm font-medium text-zinc-100 leading-snug">
             {job.job_title}
-            <ExternalLink className="w-3 h-3 text-zinc-500 shrink-0" />
-          </a>
-          <div className="text-[11px] text-zinc-700 mt-1">
-            {SOURCE_LABELS[job.source] || job.source}
-            {isFollowUp && <span className="text-amber-500 ml-1">· Follow-up</span>}
-          </div>
+          </span>
+          {isFollowUp && <span className="text-amber-500 text-[11px] ml-1.5">· Follow-up</span>}
+        </td>
+
+        {/* Source */}
+        <td className="px-4 py-3 whitespace-nowrap">
+          <span className="text-xs text-zinc-500">{SOURCE_LABELS[job.source] || job.source}</span>
         </td>
 
         {/* Company */}
@@ -164,13 +160,16 @@ export default function JobPostingRow({
           <span className="text-xs text-zinc-400">{REMOTE_LABELS[job.remote_scope] || "—"}</span>
         </td>
 
-        {/* Posted */}
+        {/* Date — posted_at if available, else created_at (pipeline fetch date) */}
         <td className="px-4 py-3 whitespace-nowrap">
-          <span className="text-xs text-zinc-400">
-            {job.posted_at
-              ? format(new Date(job.posted_at), "MMM d, yyyy")
-              : "—"}
-          </span>
+          {job.posted_at ? (
+            <span className="text-xs text-zinc-400">{format(new Date(job.posted_at), "MMM d, yyyy")}</span>
+          ) : (
+            <div>
+              <span className="text-xs text-zinc-400">{format(new Date(job.created_at), "MMM d, yyyy")}</span>
+              <div className="text-[10px] text-zinc-600 mt-0.5">fetched</div>
+            </div>
+          )}
         </td>
 
         {/* Contact */}
@@ -229,6 +228,19 @@ export default function JobPostingRow({
           </select>
         </td>
 
+        {/* Open button */}
+        <td className="px-4 py-3">
+          <a
+            href={job.job_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/60 hover:bg-zinc-700/60 hover:border-zinc-600 transition-colors text-xs font-medium text-zinc-300 whitespace-nowrap"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Open
+          </a>
+        </td>
+
         {/* Expand */}
         <td className="px-4 py-3">
           <button
@@ -243,7 +255,7 @@ export default function JobPostingRow({
       {/* ── Expanded detail row ── */}
       {expanded && (
         <tr className="bg-zinc-900/30 border-b border-zinc-800/40">
-          <td colSpan={8} className="px-6 py-4">
+          <td colSpan={10} className="px-6 py-4">
             <div className="space-y-4 max-w-xl">
 
               {/* Job summary */}
