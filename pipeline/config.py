@@ -41,37 +41,6 @@ APOLLO_CREDIT_ALERT     = 30     # warn dashboard when credits below this
 FUNDING_MIN_USD         = 1_000_000
 FUNDING_MAX_USD         = 50_000_000
 
-# ── Lever company slugs (Track B source) ─────────────────────────────────────
-# Format: jobs.lever.co/{slug} — add more via: site:jobs.lever.co crypto OR web3 OR defi
-LEVER_COMPANIES = [
-    "crypto",               # Crypto.com
-    "serotonin",            # Serotonin
-    "1inch",                # 1inch
-    "wintermute-trading",   # Wintermute
-    "offchainlabs",         # Arbitrum / Offchain Labs
-    "certik",               # CertiK
-    "binance",              # Binance
-    "chainlink",            # Chainlink Labs
-    "ethereumfoundation",   # Ethereum Foundation
-    "delv",                 # DELV (formerly Element Finance)
-    "consensys",            # ConsenSys
-    "openseaio",            # OpenSea
-    "uniswap",              # Uniswap Labs
-    "paradigm",             # Paradigm
-    "alchemy",              # Alchemy
-    "dydx",                 # dYdX
-    "aave",                 # Aave
-    "starkware",            # StarkWare
-    "polygon",              # Polygon Labs
-    "coinbase",             # Coinbase
-    "anchorage",            # Anchorage Digital
-    "figment",              # Figment
-    "blockdaemon",          # Blockdaemon
-    "ledger",               # Ledger
-    "kraken",               # Kraken
-    "gemini",               # Gemini
-]
-
 # Design role keywords (regex OR list — used by role filter)
 DESIGN_ROLE_KEYWORDS = [
     "product designer",

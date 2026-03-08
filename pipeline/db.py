@@ -182,31 +182,6 @@ def update_job_posting(job_id: str, data: dict):
     get_client().table("job_postings").update(data).eq("id", job_id).execute()
 
 
-# ── Lever companies ────────────────────────────────────────────────────────────
-
-def get_lever_companies() -> list[dict]:
-    """Returns all active lever company slugs from DB."""
-    try:
-        res = (get_client().table("lever_companies")
-               .select("slug,company_name")
-               .eq("active", True)
-               .execute())
-        return res.data or []
-    except Exception:
-        return []  # table not yet created — fall back to config list only
-
-
-def save_lever_company(slug: str, company_name: str):
-    """Upsert a confirmed Lever company slug."""
-    get_client().table("lever_companies").upsert({
-        "slug":         slug,
-        "company_name": company_name,
-        "confirmed_at": datetime.now(timezone.utc).isoformat(),
-        "last_checked": datetime.now(timezone.utc).isoformat(),
-        "active":       True,
-    }).execute()
-
-
 # ── Cross-track check ──────────────────────────────────────────────────────────
 
 def get_recent_outreach_for_company(company_id: str, days: int = 90) -> bool:

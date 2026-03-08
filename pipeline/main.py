@@ -28,7 +28,7 @@ from pipeline.config import (
 
 from pipeline.fetchers import (
     cryptorank_scraper, crypto_rss, techcrunch_rss, eu_startups_rss,
-    web3career, cryptojobslist_rss, cryptocurrencyjobs_rss, lever_jobs,
+    web3career, cryptojobslist_rss, cryptocurrencyjobs_rss,
 )
 
 
@@ -172,12 +172,6 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
     })
     stats.track_a_new += 1
     print(f"[Track A] Saved: {name} ({round_type})")
-
-    # Auto-probe: check if this company posts jobs on Lever
-    try:
-        lever_jobs.probe_lever_slug(name)
-    except Exception:
-        pass
 
 
 # ── Track B processing ────────────────────────────────────────────────────────
@@ -429,7 +423,6 @@ def main():
         ("web3career",          web3career.fetch),
         ("cryptojobslist",      cryptojobslist_rss.fetch),
         ("cryptocurrencyjobs",  cryptocurrencyjobs_rss.fetch),
-        ("lever",               lever_jobs.fetch),
     ]
 
     for name, fetcher_fn in track_b_fetchers:
