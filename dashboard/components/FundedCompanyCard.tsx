@@ -221,7 +221,7 @@ export default function FundedCompanyRow({
           <select
             value={getOutreachValue(lead.status)}
             onChange={e => setStatus(e.target.value as FundedStatus)}
-            className={`bg-transparent border-0 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-zinc-600 rounded px-1 py-0.5 ${getOutreachColor(lead.status)}`}
+            className={`border border-zinc-700/60 rounded-md bg-zinc-800/80 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 px-2 py-1 ${getOutreachColor(lead.status)}`}
           >
             {OUTREACH_OPTIONS.map(o => (
               <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>
@@ -234,7 +234,7 @@ export default function FundedCompanyRow({
           <select
             value={getResponseValue(lead.status)}
             onChange={e => { if (e.target.value) setStatus(e.target.value as FundedStatus); }}
-            className={`bg-transparent border-0 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-zinc-600 rounded px-1 py-0.5 ${getResponseColor(lead.status)}`}
+            className={`border border-zinc-700/60 rounded-md bg-zinc-800/80 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 px-2 py-1 ${getResponseColor(lead.status)}`}
           >
             {RESPONSE_OPTIONS.map(o => (
               <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>

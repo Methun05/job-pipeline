@@ -123,48 +123,45 @@ export default function JobPostingRow({
       {/* ── Main row ── */}
       <tr className="hover:bg-zinc-800/20 transition-colors group">
 
-        {/* Role + Company */}
-        <td className="px-4 py-3 min-w-[200px]">
-          <div className="flex items-center gap-1.5">
-            <a href={job.job_url} target="_blank" rel="noopener noreferrer"
-              className="text-sm font-medium text-zinc-100 leading-snug hover:text-indigo-300 transition-colors">
-              {job.job_title}
-            </a>
-            <ExternalLink className="w-3 h-3 text-zinc-700 group-hover:text-zinc-500 shrink-0" />
+        {/* Role */}
+        <td className="px-4 py-3 min-w-[180px]">
+          <a
+            href={job.job_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-zinc-700/60 bg-zinc-800/60 hover:bg-zinc-700/60 hover:border-zinc-600 transition-colors text-xs font-medium text-zinc-200"
+          >
+            {job.job_title}
+            <ExternalLink className="w-3 h-3 text-zinc-500 shrink-0" />
+          </a>
+          <div className="text-[11px] text-zinc-700 mt-1">
+            {SOURCE_LABELS[job.source] || job.source}
+            {isFollowUp && <span className="text-amber-500 ml-1">· Follow-up</span>}
           </div>
-          <div className="flex items-center gap-1 mt-0.5">
-            <span className="text-[11px] text-zinc-500">{company?.name || "—"}</span>
+        </td>
+
+        {/* Company */}
+        <td className="px-4 py-3 min-w-[140px]">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-zinc-300">{company?.name || "—"}</span>
             {websiteUrl && (
               <a href={websiteUrl} target="_blank" rel="noopener noreferrer"
                 className="text-zinc-700 hover:text-zinc-400 transition-colors shrink-0">
-                <Globe className="w-2.5 h-2.5" />
+                <Globe className="w-3 h-3" />
               </a>
             )}
             {company?.linkedin_url && (
               <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer"
                 className="text-zinc-700 hover:text-blue-400 transition-colors shrink-0">
-                <Linkedin className="w-2.5 h-2.5" />
+                <Linkedin className="w-3 h-3" />
               </a>
             )}
-          </div>
-          <div className="text-[11px] text-zinc-700 mt-0.5">
-            {SOURCE_LABELS[job.source] || job.source}
-            {isFollowUp && <span className="text-amber-500 ml-1">· Follow-up</span>}
           </div>
         </td>
 
         {/* Remote */}
         <td className="px-4 py-3 whitespace-nowrap">
           <span className="text-xs text-zinc-400">{REMOTE_LABELS[job.remote_scope] || "—"}</span>
-        </td>
-
-        {/* Salary */}
-        <td className="px-4 py-3 whitespace-nowrap">
-          {salary ? (
-            <span className="text-sm font-semibold text-emerald-400">{salary}</span>
-          ) : (
-            <span className="text-xs text-zinc-700">—</span>
-          )}
         </td>
 
         {/* Posted */}
@@ -211,7 +208,7 @@ export default function JobPostingRow({
           <select
             value={job.application_status}
             onChange={e => updateApp(e.target.value as AppStatus)}
-            className={`bg-transparent border-0 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-zinc-600 rounded px-1 py-0.5 ${getColor(APP_OPTIONS, job.application_status)}`}
+            className={`border border-zinc-700/60 rounded-md bg-zinc-800/80 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 px-2 py-1 ${getColor(APP_OPTIONS, job.application_status)}`}
           >
             {APP_OPTIONS.map(o => (
               <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>
@@ -224,7 +221,7 @@ export default function JobPostingRow({
           <select
             value={job.outreach_status}
             onChange={e => updateOutreach(e.target.value as OutreachStatus)}
-            className={`bg-transparent border-0 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-zinc-600 rounded px-1 py-0.5 ${getColor(OUTREACH_OPTIONS, job.outreach_status)}`}
+            className={`border border-zinc-700/60 rounded-md bg-zinc-800/80 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 px-2 py-1 ${getColor(OUTREACH_OPTIONS, job.outreach_status)}`}
           >
             {OUTREACH_OPTIONS.map(o => (
               <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>
