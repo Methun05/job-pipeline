@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, SlidersHorizontal, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { FundedLead, FundedStatus, PipelineRun } from "@/lib/types";
 import FundedCompanyRow from "@/components/FundedCompanyCard";
@@ -9,7 +9,7 @@ import FundedCompanyRow from "@/components/FundedCompanyCard";
 type SortKey = "funding" | "date";
 type SortDir = "asc" | "desc";
 
-const FILTERS: { value: string; label: string }[] = [
+const FILTERS = [
   { value: "active",          label: "Active"      },
   { value: "all",             label: "All"          },
   { value: "new",             label: "Not Sent"     },
@@ -17,6 +17,9 @@ const FILTERS: { value: string; label: string }[] = [
   { value: "connected",       label: "Connected"    },
   { value: "replied",         label: "Replied"      },
   { value: "interview",       label: "Interview"    },
+  { value: "closed",          label: "Closed"       },
+  { value: "skipped",         label: "Skipped"      },
+  { value: "cant_find",       label: "Can't Find"   },
   { value: "done",            label: "Done"         },
 ];
 
@@ -29,8 +32,10 @@ export default function FundedPage() {
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter]         = useState("active");
+  const [filterOpen, setFilterOpen] = useState(false);
   const [sortKey, setSortKey]       = useState<SortKey>("date");
   const [sortDir, setSortDir]       = useState<SortDir>("desc");
+  const filterRef                   = useRef<HTMLDivElement>(null);
 
   async function load(showSpinner = false) {
     if (showSpinner) setRefreshing(true);
@@ -55,6 +60,17 @@ export default function FundedPage() {
 
   useEffect(() => { load(); }, []);
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   function handleStatusChange(id: string, status: FundedStatus) {
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status } : l));
   }
@@ -63,6 +79,8 @@ export default function FundedPage() {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("desc"); }
   }
+
+  const activeLabel = FILTERS.find(f => f.value === filter)?.label ?? "Filter";
 
   const filtered = useMemo(() => {
     let rows = leads;
@@ -98,8 +116,8 @@ export default function FundedPage() {
 
       {/* ── Page header ── */}
       <div className="sticky top-0 z-10 bg-[#0f0f10]/95 backdrop-blur border-b border-zinc-800/60">
-        <div className="px-6 pt-4 pb-0">
-          <div className="flex items-center justify-between mb-4">
+        <div className="px-6 py-3">
+          <div className="flex items-center justify-between">
             <div>
               <h1 className="text-base font-semibold text-zinc-100">Funded Companies</h1>
               {lastRun?.completed_at && (
@@ -109,7 +127,40 @@ export default function FundedPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-600 mr-1">{filtered.length} companies</span>
+              <span className="text-xs text-zinc-600">{filtered.length} companies</span>
+
+              {/* Filter dropdown */}
+              <div className="relative" ref={filterRef}>
+                <button
+                  onClick={() => setFilterOpen(o => !o)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors text-xs font-medium ${
+                    filterOpen
+                      ? "border-indigo-500/60 bg-indigo-600/10 text-indigo-300"
+                      : "border-zinc-700/60 bg-zinc-800/60 hover:bg-zinc-700/60 text-zinc-300"
+                  }`}
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  {activeLabel}
+                </button>
+
+                {filterOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-44 bg-zinc-900 border border-zinc-700/60 rounded-xl shadow-xl overflow-hidden z-50">
+                    {FILTERS.map(f => (
+                      <button
+                        key={f.value}
+                        onClick={() => { setFilter(f.value); setFilterOpen(false); }}
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-zinc-800 transition-colors text-left"
+                      >
+                        <span className={filter === f.value ? "text-indigo-300 font-medium" : "text-zinc-300"}>
+                          {f.label}
+                        </span>
+                        {filter === f.value && <Check className="w-3 h-3 text-indigo-400" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={() => load(true)}
                 disabled={refreshing}
@@ -119,23 +170,6 @@ export default function FundedPage() {
                 Reload
               </button>
             </div>
-          </div>
-
-          {/* Filter tabs */}
-          <div className="flex gap-0 overflow-x-auto scrollbar-hide -mx-6 px-6">
-            {FILTERS.map(f => (
-              <button
-                key={f.value}
-                onClick={() => setFilter(f.value)}
-                className={`shrink-0 px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  filter === f.value
-                    ? "border-indigo-500 text-zinc-100"
-                    : "border-transparent text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
           </div>
         </div>
       </div>
