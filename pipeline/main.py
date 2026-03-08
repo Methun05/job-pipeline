@@ -28,7 +28,7 @@ from pipeline.config import (
 )
 
 from pipeline.fetchers import (
-    cryptorank_scraper, crypto_rss, techcrunch_rss, eu_startups_rss, crunchbase_rss,
+    cryptorank_scraper,
     web3career, cryptojobslist_rss, cryptocurrencyjobs_rss,
 )
 
@@ -403,30 +403,6 @@ def main():
     except Exception as e:
         stats.add_error("cryptorank_scraper", str(e))
 
-    # RSS sources → Gemini extraction
-    rss_sources = [
-        ("techcrunch_rss",  techcrunch_rss.fetch,  "techcrunch"),
-        ("eu_startups_rss", eu_startups_rss.fetch, "eu_startups"),
-        ("crypto_rss",      crypto_rss.fetch,      None),   # source name comes from article
-        ("crunchbase_rss",  crunchbase_rss.fetch,  "crunchbase"),
-    ]
-    for fetcher_name, fetcher_fn, default_source in rss_sources:
-        try:
-            articles = fetcher_fn()
-            print(f"[{fetcher_name}] {len(articles)} funding articles to process")
-            for article in articles:
-                try:
-                    source = article.get("source") or default_source or fetcher_name
-                    extracted = gen.extract_funding_from_article(
-                        article["title"], article["summary"], source
-                    )
-                    if extracted:
-                        extracted["announced_date"] = article["published_date"]
-                        raw_funded.append(extracted)
-                except Exception as e:
-                    stats.add_error(f"{fetcher_name}_extract", str(e))
-        except Exception as e:
-            stats.add_error(fetcher_name, str(e))
 
     print(f"[Track A] Processing {len(raw_funded)} funded company candidates...")
     for item in raw_funded:
