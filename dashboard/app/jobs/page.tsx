@@ -171,7 +171,7 @@ export default function JobsPage() {
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Role</th>
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Source</th>
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Company</th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Remote</th>
+                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Location</th>
                   <th
                     className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-300 transition-colors"
                     onClick={() => setSortDir(d => d === "asc" ? "desc" : "asc")}

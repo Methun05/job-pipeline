@@ -71,6 +71,7 @@ export interface JobPosting {
   salary_max: number | null;
   salary_currency: string;
   posted_at: string | null;
+  location: string | null;
   remote_scope: RemoteScope;
   experience_match: ExperienceMatch;
   years_min: number | null;

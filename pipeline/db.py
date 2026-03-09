@@ -162,7 +162,17 @@ def get_job_by_url(url: str) -> Optional[dict]:
 
 
 def insert_job_posting(data: dict) -> str:
-    res = get_client().table("job_postings").insert(data).execute()
+    # Strip keys not in schema to avoid errors
+    allowed = {
+        "company_id", "contact_id", "source", "job_title", "job_url",
+        "description_raw", "description_summary", "salary_min", "salary_max",
+        "salary_currency", "posted_at", "location", "remote_scope",
+        "experience_match", "years_min", "years_max", "cover_letter",
+        "linkedin_note", "email_draft", "follow_up_message",
+        "application_status", "outreach_status", "follow_up_generated",
+        "notes", "raw_data",
+    }
+    res = get_client().table("job_postings").insert({k: v for k, v in data.items() if k in allowed}).execute()
     return res.data[0]["id"]
 
 

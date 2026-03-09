@@ -313,6 +313,7 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
         "salary_max":          job.get("salary_max"),
         "salary_currency":     job.get("salary_currency", "USD"),
         "posted_at":           job.get("posted_at"),
+        "location":            job.get("location"),
         "remote_scope":        groq_remote_scope,
         "experience_match":    groq_exp_match if groq_exp_match != "ambiguous" else "strong",
         "years_min":           years_min,

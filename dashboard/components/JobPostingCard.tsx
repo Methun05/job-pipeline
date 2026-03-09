@@ -159,9 +159,9 @@ export default function JobPostingRow({
           </div>
         </td>
 
-        {/* Remote */}
+        {/* Location */}
         <td className="px-4 py-4 whitespace-nowrap">
-          <span className="text-xs text-zinc-400">{REMOTE_LABELS[job.remote_scope] || "—"}</span>
+          <span className="text-xs text-zinc-400">{job.location || "—"}</span>
         </td>
 
         {/* Date — posted_at if available, else created_at (pipeline fetch date) */}
