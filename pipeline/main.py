@@ -24,7 +24,8 @@ from pipeline.filters.experience import classify_experience
 from pipeline.filters.remote_scope import detect_remote_scope
 from pipeline.enrichment.twitter_finder import find_twitter_handle
 from pipeline.config import (
-    DESIGN_ROLE_KEYWORDS, FUNDING_MIN_USD, FUNDING_MAX_USD, NINETY_DAY_RESET, GEMINI_ENABLED
+    DESIGN_ROLE_KEYWORDS, FUNDING_MIN_USD, FUNDING_MAX_USD, NINETY_DAY_RESET, GEMINI_ENABLED,
+    CLEANUP_DAYS,
 )
 
 from pipeline.fetchers import (
@@ -447,6 +448,13 @@ def main():
 
     # ── Follow-ups ────────────────────────────────────────────────────────────
     generate_followups(stats)
+
+    # ── Cleanup old untouched records ─────────────────────────────────────────
+    try:
+        cleaned = db.cleanup_old_records(days=CLEANUP_DAYS)
+        print(f"[Cleanup] Deleted {cleaned['jobs_deleted']} old job postings, {cleaned['leads_deleted']} old funded leads")
+    except Exception as e:
+        stats.add_error("cleanup", str(e))
 
     # ── Apollo credit update ──────────────────────────────────────────────────
     final_credits = apollo.get_credit_balance()

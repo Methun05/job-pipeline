@@ -39,6 +39,7 @@ FOLLOW_UP_DAYS          = 7      # generate follow-up after N days of inaction
 DEDUP_FUZZY_THRESHOLD   = 85     # RapidFuzz token_set_ratio threshold
 NINETY_DAY_RESET        = 90     # re-contact after N days
 APOLLO_CREDIT_ALERT     = 30     # warn dashboard when credits below this
+CLEANUP_DAYS            = 30     # delete untouched records older than N days
 FUNDING_MIN_USD         = 1_000_000
 FUNDING_MAX_USD         = 50_000_000
 

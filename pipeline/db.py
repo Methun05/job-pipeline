@@ -182,6 +182,40 @@ def update_job_posting(job_id: str, data: dict):
     get_client().table("job_postings").update(data).eq("id", job_id).execute()
 
 
+# ── Cleanup ────────────────────────────────────────────────────────────────────
+
+def cleanup_old_records(days: int = 30) -> dict:
+    """
+    Delete untouched records older than N days.
+    SAFE: only deletes records the user has never interacted with.
+    - job_postings:  application_status='new' AND outreach_status='new'
+    - funded_leads:  status='new'
+    Returns counts of deleted records.
+    """
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    db = get_client()
+
+    # Jobs: only delete if user has never touched them
+    jobs_res = (db.table("job_postings")
+                .delete()
+                .eq("application_status", "new")
+                .eq("outreach_status", "new")
+                .lt("created_at", cutoff)
+                .execute())
+    jobs_deleted = len(jobs_res.data) if jobs_res.data else 0
+
+    # Funded leads: only delete if user has never touched them
+    leads_res = (db.table("funded_leads")
+                 .delete()
+                 .eq("status", "new")
+                 .lt("created_at", cutoff)
+                 .execute())
+    leads_deleted = len(leads_res.data) if leads_res.data else 0
+
+    return {"jobs_deleted": jobs_deleted, "leads_deleted": leads_deleted}
+
+
 # ── Cross-track check ──────────────────────────────────────────────────────────
 
 def get_recent_outreach_for_company(company_id: str, days: int = 90) -> bool:
