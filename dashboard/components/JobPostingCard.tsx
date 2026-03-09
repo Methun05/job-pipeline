@@ -12,6 +12,9 @@ const SOURCE_LABELS: Record<string, string> = {
   cryptojobslist:     "CryptoJobsList",
   cryptocurrencyjobs: "CryptocurrencyJobs",
   dragonfly:          "Dragonfly",
+  arbitrum:           "Arbitrum",
+  hashtagweb3:        "#Web3",
+  talentweb3:         "TalentWeb3",
 };
 
 // ── Application dropdown ──────────────────────────────────────────────────────

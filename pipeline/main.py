@@ -30,7 +30,7 @@ from pipeline.config import (
 from pipeline.fetchers import (
     cryptorank_scraper,
     web3career, cryptojobslist_rss, cryptocurrencyjobs_rss,
-    dragonfly_jobs,
+    dragonfly_jobs, arbitrum_jobs, hashtagweb3, talentweb3,
 )
 
 
@@ -421,6 +421,9 @@ def main():
         ("cryptojobslist",      cryptojobslist_rss.fetch),
         ("cryptocurrencyjobs",  cryptocurrencyjobs_rss.fetch),
         ("dragonfly",           dragonfly_jobs.fetch),
+        ("arbitrum",            arbitrum_jobs.fetch),
+        ("hashtagweb3",         hashtagweb3.fetch),
+        ("talentweb3",          talentweb3.fetch),
     ]
 
     for name, fetcher_fn in track_b_fetchers:
