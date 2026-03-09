@@ -16,8 +16,8 @@ WEB3CAREER_API_KEY   = os.getenv("WEB3CAREER_API_KEY", "")
 BRAVE_API_KEY        = os.getenv("BRAVE_API_KEY", "")
 
 # ── Gemini model ──────────────────────────────────────────────────────────────
-GEMINI_MODEL    = "gemini-2.0-flash"
-GEMINI_ENABLED  = False   # set True to re-enable AI content generation
+GEMINI_MODEL    = "gemini-2.5-flash"
+GEMINI_ENABLED  = True
 
 # ── My profile (injected into every generation prompt) ────────────────────────
 PROFILE = {
