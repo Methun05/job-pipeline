@@ -198,6 +198,7 @@ export default function FundedPage() {
                   >
                     <span className="flex items-center">Date <SortIcon col="date" /></span>
                   </th>
+                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Social Links</th>
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Contact</th>
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Outreach</th>
                   <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Response</th>

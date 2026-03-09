@@ -124,7 +124,7 @@ export default function JobPostingRow({
       <tr className="hover:bg-zinc-800/20 transition-colors group">
 
         {/* Role */}
-        <td className="px-4 py-3 min-w-[180px]">
+        <td className="px-4 py-4 min-w-[180px]">
           <span className="text-sm font-medium text-zinc-100 leading-snug">
             {job.job_title}
           </span>
@@ -132,12 +132,12 @@ export default function JobPostingRow({
         </td>
 
         {/* Source */}
-        <td className="px-4 py-3 whitespace-nowrap">
+        <td className="px-4 py-4 whitespace-nowrap">
           <span className="text-xs text-zinc-500">{SOURCE_LABELS[job.source] || job.source}</span>
         </td>
 
         {/* Company */}
-        <td className="px-4 py-3 min-w-[140px]">
+        <td className="px-4 py-4 min-w-[140px]">
           <div className="flex items-center gap-1.5">
             <span className="text-sm text-zinc-300">{company?.name || "—"}</span>
             {websiteUrl && (
@@ -156,12 +156,12 @@ export default function JobPostingRow({
         </td>
 
         {/* Remote */}
-        <td className="px-4 py-3 whitespace-nowrap">
+        <td className="px-4 py-4 whitespace-nowrap">
           <span className="text-xs text-zinc-400">{REMOTE_LABELS[job.remote_scope] || "—"}</span>
         </td>
 
         {/* Date — posted_at if available, else created_at (pipeline fetch date) */}
-        <td className="px-4 py-3 whitespace-nowrap">
+        <td className="px-4 py-4 whitespace-nowrap">
           {job.posted_at ? (
             <span className="text-xs text-zinc-400">{format(new Date(job.posted_at), "MMM d, yyyy")}</span>
           ) : (
@@ -173,7 +173,7 @@ export default function JobPostingRow({
         </td>
 
         {/* Contact */}
-        <td className="px-4 py-3 min-w-[140px]">
+        <td className="px-4 py-4 min-w-[140px]">
           {contact ? (
             <div className="flex items-center gap-1.5">
               <div className="min-w-0">
@@ -203,7 +203,7 @@ export default function JobPostingRow({
         </td>
 
         {/* Application dropdown */}
-        <td className="px-4 py-3">
+        <td className="px-4 py-4">
           <select
             value={job.application_status}
             onChange={e => updateApp(e.target.value as AppStatus)}
@@ -216,7 +216,7 @@ export default function JobPostingRow({
         </td>
 
         {/* Outreach dropdown */}
-        <td className="px-4 py-3">
+        <td className="px-4 py-4">
           <select
             value={job.outreach_status}
             onChange={e => updateOutreach(e.target.value as OutreachStatus)}
@@ -229,7 +229,7 @@ export default function JobPostingRow({
         </td>
 
         {/* Open button */}
-        <td className="px-4 py-3">
+        <td className="px-4 py-4">
           <a
             href={job.job_url}
             target="_blank"
@@ -242,7 +242,7 @@ export default function JobPostingRow({
         </td>
 
         {/* Expand */}
-        <td className="px-4 py-3">
+        <td className="px-4 py-4">
           <button
             onClick={() => setExpanded(!expanded)}
             className="text-zinc-700 hover:text-zinc-400 transition-colors"

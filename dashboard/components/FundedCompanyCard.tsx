@@ -142,23 +142,9 @@ export default function FundedCompanyRow({
       <tr className="hover:bg-zinc-800/20 transition-colors group">
 
         {/* Company */}
-        <td className="px-4 py-3 min-w-[170px]">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-medium text-zinc-100 leading-snug">
-              {company?.name || "—"}
-            </span>
-            {companyPageUrl && (
-              <a href={companyPageUrl} target="_blank" rel="noopener noreferrer"
-                className="text-zinc-600 hover:text-zinc-300 transition-colors shrink-0" title="Website">
-                <Globe className="w-3 h-3" />
-              </a>
-            )}
-            {company?.linkedin_url && (
-              <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer"
-                className="text-zinc-600 hover:text-blue-400 transition-colors shrink-0" title="Company LinkedIn">
-                <Linkedin className="w-3 h-3" />
-              </a>
-            )}
+        <td className="px-4 py-4 min-w-[170px]">
+          <div className="text-sm font-medium text-zinc-100 leading-snug">
+            {company?.name || "—"}
           </div>
           <div className="text-[11px] text-zinc-600 mt-0.5">
             {SOURCE_LABELS[lead.source] || lead.source}
@@ -167,13 +153,13 @@ export default function FundedCompanyRow({
         </td>
 
         {/* Funding */}
-        <td className="px-4 py-3 whitespace-nowrap">
+        <td className="px-4 py-4 whitespace-nowrap">
           <div className="text-sm font-semibold text-emerald-400">{funding}</div>
           <div className="text-[11px] text-zinc-600">{lead.round_type}</div>
         </td>
 
         {/* Date */}
-        <td className="px-4 py-3 whitespace-nowrap">
+        <td className="px-4 py-4 whitespace-nowrap">
           <span className="text-xs text-zinc-400">
             {lead.announced_date
               ? format(new Date(lead.announced_date + "T00:00:00"), "MMM d, yyyy")
@@ -181,8 +167,30 @@ export default function FundedCompanyRow({
           </span>
         </td>
 
+        {/* Social Links */}
+        <td className="px-4 py-4 whitespace-nowrap">
+          <div className="flex items-center gap-3">
+            {companyPageUrl ? (
+              <a href={companyPageUrl} target="_blank" rel="noopener noreferrer"
+                className="text-zinc-500 hover:text-zinc-200 transition-colors" title="Website">
+                <Globe className="w-4 h-4" />
+              </a>
+            ) : (
+              <Globe className="w-4 h-4 text-zinc-800" />
+            )}
+            {company?.linkedin_url ? (
+              <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer"
+                className="text-zinc-500 hover:text-blue-400 transition-colors" title="Company LinkedIn">
+                <Linkedin className="w-4 h-4" />
+              </a>
+            ) : (
+              <Linkedin className="w-4 h-4 text-zinc-800" />
+            )}
+          </div>
+        </td>
+
         {/* Contact */}
-        <td className="px-4 py-3 min-w-[160px]">
+        <td className="px-4 py-4 min-w-[160px]">
           {contact ? (
             <div className="flex items-center gap-1.5">
               <div className="min-w-0">
@@ -217,7 +225,7 @@ export default function FundedCompanyRow({
         </td>
 
         {/* Outreach dropdown */}
-        <td className="px-4 py-3">
+        <td className="px-4 py-4">
           <select
             value={getOutreachValue(lead.status)}
             onChange={e => setStatus(e.target.value as FundedStatus)}
@@ -230,7 +238,7 @@ export default function FundedCompanyRow({
         </td>
 
         {/* Response dropdown */}
-        <td className="px-4 py-3">
+        <td className="px-4 py-4">
           <select
             value={getResponseValue(lead.status)}
             onChange={e => { if (e.target.value) setStatus(e.target.value as FundedStatus); }}
@@ -243,7 +251,7 @@ export default function FundedCompanyRow({
         </td>
 
         {/* Expand */}
-        <td className="px-4 py-3">
+        <td className="px-4 py-4">
           <button
             onClick={() => setExpanded(!expanded)}
             className="text-zinc-700 hover:text-zinc-400 transition-colors"
@@ -256,7 +264,7 @@ export default function FundedCompanyRow({
       {/* ── Expanded detail row ── */}
       {expanded && (
         <tr className="bg-zinc-900/30 border-b border-zinc-800/40">
-          <td colSpan={7} className="px-6 py-4">
+          <td colSpan={8} className="px-6 py-4">
             <div className="space-y-4 max-w-xl">
 
               {/* Message */}
