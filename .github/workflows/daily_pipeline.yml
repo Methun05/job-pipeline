@@ -1,9 +1,8 @@
 name: Daily Job Pipeline
 
 on:
-  schedule:
-    - cron: '30 2 * * *'   # 8:00 AM IST (UTC+5:30)
-  # Manual trigger for testing — remove after confirmed working
+  # Triggered externally via cron-job.org at 02:30 UTC (8:00 AM IST)
+  # GitHub's built-in schedule is unreliable (1-2hr delays) — external trigger is the fix
   workflow_dispatch:
 
 jobs:
