@@ -5,8 +5,9 @@ Fetches top 20 newest jobs on every pipeline run.
 """
 import json
 import requests
+from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
-from pipeline.config import HTTP_TIMEOUT
+from pipeline.config import HTTP_TIMEOUT, TRACK_B_HOURS_WINDOW
 
 BASE_URL = "https://jobs.arbitrum.io/jobs"
 
@@ -31,6 +32,7 @@ def fetch() -> list[dict]:
     except (KeyError, TypeError, json.JSONDecodeError) as e:
         raise RuntimeError(f"Arbitrum jobs: could not parse __NEXT_DATA__: {e}")
 
+    cutoff  = datetime.now(timezone.utc) - timedelta(hours=TRACK_B_HOURS_WINDOW)
     results = []
     for item in jobs_raw:
         try:
@@ -45,7 +47,23 @@ def fetch() -> list[dict]:
             company_name    = company.get("name", "")    if isinstance(company, dict) else ""
             company_website = company.get("websiteUrl", "") if isinstance(company, dict) else ""
 
-            posted_at = item.get("publishedAt") or item.get("createdAt") or None
+            # createdAt is a Unix timestamp int on Getro boards
+            raw_ts    = item.get("publishedAt") or item.get("createdAt") or None
+            posted_dt = None
+            if isinstance(raw_ts, (int, float)):
+                posted_dt = datetime.fromtimestamp(raw_ts, tz=timezone.utc)
+            elif isinstance(raw_ts, str):
+                try:
+                    posted_dt = datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
+                    if posted_dt.tzinfo is None:
+                        posted_dt = posted_dt.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    pass
+
+            if posted_dt and posted_dt < cutoff:
+                continue
+
+            posted_at = posted_dt.isoformat() if posted_dt else None
 
             location = item.get("locationNames") or ""
             if isinstance(location, list):
