@@ -58,6 +58,6 @@ def classify_experience(text: str) -> tuple[str, int | None, int | None]:
     if MID_KEYWORDS.search(text):
         return ("strong", 2, 5)
     if SENIOR_KEYWORDS.search(text):
-        return ("skip", 5, 7)
+        return ("stretch", 3, 5)
 
     return ("ambiguous", None, None)
