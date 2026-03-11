@@ -18,7 +18,7 @@ export default function Sidebar({
   const path = usePathname();
 
   return (
-    <aside className={`fixed top-0 left-0 h-screen ${collapsed ? "w-14" : "w-52"} bg-zinc-950 border-r border-zinc-800/60 flex flex-col z-20 transition-[width] duration-200 overflow-hidden`}>
+    <aside className={`hidden md:flex fixed top-0 left-0 h-screen ${collapsed ? "w-14" : "w-52"} bg-zinc-950 border-r border-zinc-800/60 flex-col z-20 transition-[width] duration-200 overflow-hidden`}>
 
       {/* Logo */}
       <div className="px-3 py-4 border-b border-zinc-800/60">

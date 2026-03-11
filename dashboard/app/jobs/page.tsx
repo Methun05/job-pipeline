@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { RefreshCw, ArrowUp, ArrowDown, SlidersHorizontal, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { JobPosting, PipelineRun } from "@/lib/types";
-import JobPostingRow from "@/components/JobPostingCard";
+import JobPostingRow, { JobPostingMobileCard } from "@/components/JobPostingCard";
 
 type SortDir = "asc" | "desc";
 
@@ -99,9 +99,9 @@ export default function JobsPage() {
 
       {/* ── Page header ── */}
       <div className="sticky top-0 z-10 bg-[#0f0f10]/95 backdrop-blur border-b border-zinc-800/60">
-        <div className="px-6 py-3">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="px-4 md:px-6 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
               <h1 className="text-base font-semibold text-zinc-100">Job Postings</h1>
               {lastRun?.completed_at && (
                 <p className="text-xs text-zinc-500 mt-0.5">
@@ -109,8 +109,8 @@ export default function JobsPage() {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-600">{filtered.length} jobs</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-zinc-600 hidden sm:inline">{filtered.length} jobs</span>
 
               {/* Filter dropdown */}
               <div className="relative" ref={filterRef}>
@@ -123,7 +123,7 @@ export default function JobsPage() {
                   }`}
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5" />
-                  {activeLabel}
+                  <span className="hidden sm:inline">{activeLabel}</span>
                 </button>
 
                 {filterOpen && (
@@ -150,55 +150,64 @@ export default function JobsPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700/60 bg-zinc-800/60 hover:bg-zinc-700/60 transition-colors text-xs text-zinc-300 disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-                Reload
+                <span className="hidden sm:inline">Reload</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Table ── */}
-      <div className="px-6 pt-4 pb-8">
-        {filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-sm text-zinc-600">No jobs here. Pipeline runs daily at 8 AM IST.</p>
+      {filtered.length === 0 ? (
+        <div className="text-center py-20">
+          <p className="text-sm text-zinc-600">No jobs here. Pipeline runs daily at 8 AM IST.</p>
+        </div>
+      ) : (
+        <>
+          {/* ── Mobile card list ── */}
+          <div className="md:hidden rounded-xl border border-zinc-800/60 mx-4 mt-4 mb-8 overflow-hidden">
+            {filtered.map(job => (
+              <JobPostingMobileCard key={job.id} job={job} onUpdate={handleUpdate} />
+            ))}
           </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-zinc-800/60">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-zinc-800/60 bg-zinc-900/40">
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Role</th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Source</th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Company</th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Location</th>
-                  <th
-                    className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-300 transition-colors"
-                    onClick={() => setSortDir(d => d === "asc" ? "desc" : "asc")}
-                  >
-                    <span className="flex items-center">
-                      Date
-                      {sortDir === "asc"
-                        ? <ArrowUp className="w-3 h-3 ml-1" />
-                        : <ArrowDown className="w-3 h-3 ml-1" />}
-                    </span>
-                  </th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Application</th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Outreach</th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Open</th>
-                  <th className="px-4 py-2.5 w-8" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/40">
-                {filtered.map(job => (
-                  <JobPostingRow key={job.id} job={job} onUpdate={handleUpdate} />
-                ))}
-              </tbody>
-            </table>
+
+          {/* ── Desktop table ── */}
+          <div className="hidden md:block px-6 pt-4 pb-8">
+            <div className="overflow-x-auto rounded-xl border border-zinc-800/60">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-zinc-800/60 bg-zinc-900/40">
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Role</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Source</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Company</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Location</th>
+                    <th
+                      className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-300 transition-colors"
+                      onClick={() => setSortDir(d => d === "asc" ? "desc" : "asc")}
+                    >
+                      <span className="flex items-center">
+                        Date
+                        {sortDir === "asc"
+                          ? <ArrowUp className="w-3 h-3 ml-1" />
+                          : <ArrowDown className="w-3 h-3 ml-1" />}
+                      </span>
+                    </th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Application</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Outreach</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Open</th>
+                    <th className="px-4 py-2.5 w-8" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/40">
+                  {filtered.map(job => (
+                    <JobPostingRow key={job.id} job={job} onUpdate={handleUpdate} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }

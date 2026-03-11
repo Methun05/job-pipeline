@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, SlidersHorizontal, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { FundedLead, FundedStatus, PipelineRun } from "@/lib/types";
-import FundedCompanyRow from "@/components/FundedCompanyCard";
+import FundedCompanyRow, { FundedCompanyMobileCard } from "@/components/FundedCompanyCard";
 
 type SortKey = "funding" | "date";
 type SortDir = "asc" | "desc";
@@ -116,9 +116,9 @@ export default function FundedPage() {
 
       {/* ── Page header ── */}
       <div className="sticky top-0 z-10 bg-[#0f0f10]/95 backdrop-blur border-b border-zinc-800/60">
-        <div className="px-6 py-3">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="px-4 md:px-6 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
               <h1 className="text-base font-semibold text-zinc-100">Funded Companies</h1>
               {lastRun?.completed_at && (
                 <p className="text-xs text-zinc-500 mt-0.5">
@@ -126,8 +126,8 @@ export default function FundedPage() {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-600">{filtered.length} companies</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-zinc-600 hidden sm:inline">{filtered.length} companies</span>
 
               {/* Filter dropdown */}
               <div className="relative" ref={filterRef}>
@@ -140,7 +140,7 @@ export default function FundedPage() {
                   }`}
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5" />
-                  {activeLabel}
+                  <span className="hidden sm:inline">{activeLabel}</span>
                 </button>
 
                 {filterOpen && (
@@ -167,53 +167,62 @@ export default function FundedPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700/60 bg-zinc-800/60 hover:bg-zinc-700/60 transition-colors text-xs text-zinc-300 disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-                Reload
+                <span className="hidden sm:inline">Reload</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Table ── */}
-      <div className="px-6 pt-4 pb-8">
-        {filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-sm text-zinc-600">No companies here. Pipeline runs daily at 8 AM IST.</p>
+      {filtered.length === 0 ? (
+        <div className="text-center py-20">
+          <p className="text-sm text-zinc-600">No companies here. Pipeline runs daily at 8 AM IST.</p>
+        </div>
+      ) : (
+        <>
+          {/* ── Mobile card list ── */}
+          <div className="md:hidden rounded-xl border border-zinc-800/60 mx-4 mt-4 mb-8 overflow-hidden">
+            {filtered.map(lead => (
+              <FundedCompanyMobileCard key={lead.id} lead={lead} onStatusChange={handleStatusChange} />
+            ))}
           </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-zinc-800/60">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-zinc-800/60 bg-zinc-900/40">
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Company</th>
-                  <th
-                    className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-300 transition-colors"
-                    onClick={() => toggleSort("funding")}
-                  >
-                    <span className="flex items-center">Funding <SortIcon col="funding" /></span>
-                  </th>
-                  <th
-                    className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-300 transition-colors"
-                    onClick={() => toggleSort("date")}
-                  >
-                    <span className="flex items-center">Date <SortIcon col="date" /></span>
-                  </th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Social Links</th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Outreach</th>
-                  <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Response</th>
-                  <th className="px-4 py-2.5 w-8" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/40">
-                {filtered.map(lead => (
-                  <FundedCompanyRow key={lead.id} lead={lead} onStatusChange={handleStatusChange} />
-                ))}
-              </tbody>
-            </table>
+
+          {/* ── Desktop table ── */}
+          <div className="hidden md:block px-6 pt-4 pb-8">
+            <div className="overflow-x-auto rounded-xl border border-zinc-800/60">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-zinc-800/60 bg-zinc-900/40">
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Company</th>
+                    <th
+                      className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-300 transition-colors"
+                      onClick={() => toggleSort("funding")}
+                    >
+                      <span className="flex items-center">Funding <SortIcon col="funding" /></span>
+                    </th>
+                    <th
+                      className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-300 transition-colors"
+                      onClick={() => toggleSort("date")}
+                    >
+                      <span className="flex items-center">Date <SortIcon col="date" /></span>
+                    </th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Social Links</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Outreach</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Response</th>
+                    <th className="px-4 py-2.5 w-8" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/40">
+                  {filtered.map(lead => (
+                    <FundedCompanyRow key={lead.id} lead={lead} onStatusChange={handleStatusChange} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
