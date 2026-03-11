@@ -1,35 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg:          #F5F5F4;
-  --card:        #FFFFFF;
-  --card-hover:  #FAFAFA;
-  --border:      #E4E4E2;
-  --text:        #111111;
-  --muted:       #6B6B6B;
-  --accent:      #7C3AED;
-}
-
 * { box-sizing: border-box; }
 
 body {
-  background-color: var(--bg);
-  color: var(--text);
-  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar */
+/* Scrollbar — light */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #D4D4D0; border-radius: 99px; }
 
+/* Scrollbar — dark */
+.dark ::-webkit-scrollbar-thumb { background: #3f3f46; }
+
 /* Copied flash animation */
 @keyframes flash-green {
   0%   { background-color: #d1fae5; }
+  100% { background-color: transparent; }
+}
+.dark .copy-flash { animation: flash-green-dark 0.6s ease-out; }
+@keyframes flash-green-dark {
+  0%   { background-color: #064e3b; }
   100% { background-color: transparent; }
 }
 .copy-flash { animation: flash-green 0.6s ease-out; }

@@ -26,8 +26,8 @@ export default function CopyButton({
       className={cn(
         "flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 shadow-sm",
         copied
-          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-          : "bg-white hover:bg-zinc-50 text-zinc-600 border border-zinc-200",
+          ? "bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+          : "bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700",
         className
       )}
     >

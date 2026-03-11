@@ -10,8 +10,20 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-[#F5F5F4] text-zinc-900 antialiased">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Prevent flash: apply dark class before React hydrates */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function(){
+            try {
+              var t = localStorage.getItem('theme');
+              var d = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              if (t === 'dark' || (!t && d)) document.documentElement.classList.add('dark');
+            } catch(e){}
+          })();
+        `}} />
+      </head>
+      <body className="min-h-screen bg-[#F5F5F4] dark:bg-[#0f0f10] text-zinc-900 dark:text-zinc-100 antialiased">
         <AppShell>{children}</AppShell>
       </body>
     </html>
