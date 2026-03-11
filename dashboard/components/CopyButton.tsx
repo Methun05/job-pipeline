@@ -24,10 +24,10 @@ export default function CopyButton({
     <button
       onClick={copy}
       className={cn(
-        "flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all active:scale-95",
+        "flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 shadow-sm",
         copied
-          ? "bg-emerald-900/60 text-emerald-400 border border-emerald-700"
-          : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700",
+          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+          : "bg-white hover:bg-zinc-50 text-zinc-600 border border-zinc-200",
         className
       )}
     >

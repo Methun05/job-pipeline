@@ -29,18 +29,18 @@ export const STATUS_OPTIONS: { value: FundedStatus; label: string }[] = [
 ];
 
 const OUTREACH_OPTIONS = [
-  { value: "new",             label: "Not Sent",   color: "text-zinc-400" },
-  { value: "connection_sent", label: "Sent",       color: "text-indigo-400" },
-  { value: "connected",       label: "Connected",  color: "text-blue-400" },
-  { value: "cant_find",       label: "Can't Find", color: "text-red-400" },
+  { value: "new",             label: "Not Sent",   color: "text-zinc-500" },
+  { value: "connection_sent", label: "Sent",       color: "text-violet-600" },
+  { value: "connected",       label: "Connected",  color: "text-blue-600" },
+  { value: "cant_find",       label: "Can't Find", color: "text-red-500" },
 ];
 
 const RESPONSE_OPTIONS = [
-  { value: "",          label: "—",         color: "text-zinc-500" },
-  { value: "replied",   label: "Replied",   color: "text-emerald-400" },
-  { value: "interview", label: "Interview", color: "text-yellow-400" },
-  { value: "closed",    label: "Closed",    color: "text-zinc-500" },
-  { value: "skipped",   label: "Skipped",   color: "text-zinc-600" },
+  { value: "",          label: "—",         color: "text-zinc-400" },
+  { value: "replied",   label: "Replied",   color: "text-emerald-600" },
+  { value: "interview", label: "Interview", color: "text-amber-600" },
+  { value: "closed",    label: "Closed",    color: "text-zinc-400" },
+  { value: "skipped",   label: "Skipped",   color: "text-zinc-400" },
 ];
 
 const RESPONSE_STATUSES = new Set(["replied", "interview", "closed", "skipped"]);
@@ -53,14 +53,13 @@ function getResponseValue(status: FundedStatus): string {
 }
 function getOutreachColor(status: FundedStatus): string {
   const val = getOutreachValue(status);
-  return OUTREACH_OPTIONS.find(o => o.value === val)?.color ?? "text-zinc-400";
+  return OUTREACH_OPTIONS.find(o => o.value === val)?.color ?? "text-zinc-500";
 }
 function getResponseColor(status: FundedStatus): string {
   const val = getResponseValue(status);
-  return RESPONSE_OPTIONS.find(o => o.value === val)?.color ?? "text-zinc-500";
+  return RESPONSE_OPTIONS.find(o => o.value === val)?.color ?? "text-zinc-400";
 }
 
-// ── Shared row state + logic ──────────────────────────────────────────────────
 function useRowState(lead: FundedLead, onStatusChange: (id: string, status: FundedStatus) => void) {
   const [expanded, setExpanded]             = useState(false);
   const [emailLoading, setEmailLoading]     = useState(false);
@@ -123,7 +122,6 @@ function useRowState(lead: FundedLead, onStatusChange: (id: string, status: Fund
   };
 }
 
-// ── Shared expanded detail content ────────────────────────────────────────────
 function ExpandedContent({
   lead, state,
 }: {
@@ -142,12 +140,12 @@ function ExpandedContent({
       {message && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+            <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
               {isFollowUp ? "Follow-up Message" : "LinkedIn Message"}
             </p>
             <CopyButton text={message} label="Copy" />
           </div>
-          <div className="bg-zinc-800/60 rounded-lg p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 text-sm text-zinc-700 leading-relaxed whitespace-pre-wrap">
             {message}
           </div>
         </div>
@@ -156,10 +154,10 @@ function ExpandedContent({
       {lead.email_draft && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Email Draft</p>
+            <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Email Draft</p>
             <CopyButton text={lead.email_draft} label="Copy" />
           </div>
-          <div className="bg-zinc-800/60 rounded-lg p-3 text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto">
+          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 text-sm text-zinc-700 leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto">
             {lead.email_draft}
           </div>
         </div>
@@ -172,8 +170,8 @@ function ExpandedContent({
               <Mail className="w-3.5 h-3.5" /> Find Email
             </Button>
           ) : (
-            <div className="bg-amber-900/20 border border-amber-800/40 rounded-lg p-3">
-              <p className="text-xs text-amber-300 mb-2">Uses <strong>1 Apollo credit</strong>. Proceed?</p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-xs text-amber-700 mb-2">Uses <strong>1 Apollo credit</strong>. Proceed?</p>
               <div className="flex gap-2">
                 <Button variant="danger" onClick={handleRevealEmail} disabled={emailLoading}>
                   {emailLoading ? "Loading..." : "Yes, reveal"}
@@ -182,22 +180,22 @@ function ExpandedContent({
               </div>
             </div>
           )}
-          {emailError && <p className="text-xs text-red-400 mt-1">{emailError}</p>}
+          {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
         </div>
       )}
       {emailResult && (
         <div className="flex items-center gap-2">
-          <Mail className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-sm text-emerald-300 font-medium">{emailResult}</span>
+          <Mail className="w-3.5 h-3.5 text-emerald-600" />
+          <span className="text-sm text-emerald-700 font-medium">{emailResult}</span>
           <CopyButton text={emailResult} label="Copy" />
         </div>
       )}
 
       {contact?.twitter_url && twitterConf !== "high" && (
-        <div className="flex items-center gap-2 bg-yellow-900/20 border border-yellow-800/30 rounded-lg px-3 py-2">
-          <Twitter className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+        <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+          <Twitter className="w-3.5 h-3.5 text-yellow-600 shrink-0" />
           <a href={contact.twitter_url} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-yellow-300 hover:underline truncate flex-1">
+            className="text-xs text-yellow-700 hover:underline truncate flex-1">
             {contact.twitter_url}
           </a>
           <Button variant="ghost" size="sm" onClick={markTwitterVerified}>
@@ -207,7 +205,7 @@ function ExpandedContent({
       )}
 
       <div>
-        <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Notes</p>
+        <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Notes</p>
         <Textarea value={notes} onChange={setNotes} placeholder="Add notes..." rows={2} />
         <Button variant="ghost" size="sm" onClick={saveNotes} disabled={saveState !== "idle"} className="mt-1.5">
           {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved ✓" : "Save"}
@@ -246,33 +244,33 @@ export function FundedCompanyMobileCard({
       : null);
 
   return (
-    <div className="border-b border-zinc-800/40 px-4 py-3">
+    <div className="border-b border-zinc-100 px-4 py-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-sm font-semibold text-zinc-100">{company?.name || "—"}</span>
-            {isFollowUp && <span className="text-amber-500 text-[10px]">Follow-up</span>}
+            <span className="text-sm font-semibold text-zinc-900">{company?.name || "—"}</span>
+            {isFollowUp && <span className="text-amber-600 text-[10px]">Follow-up</span>}
           </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-xs font-semibold text-emerald-400">{funding}</span>
-            {lead.round_type && <span className="text-[11px] text-zinc-600">{lead.round_type}</span>}
+            <span className="text-xs font-semibold text-emerald-600">{funding}</span>
+            {lead.round_type && <span className="text-[11px] text-zinc-400">{lead.round_type}</span>}
             {lead.announced_date && (
-              <span className="text-[11px] text-zinc-600">
+              <span className="text-[11px] text-zinc-400">
                 {format(new Date(lead.announced_date + "T00:00:00"), "MMM d, yyyy")}
               </span>
             )}
           </div>
           {contact && (
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              <span className="text-xs text-zinc-400">{contact.name}</span>
-              {contact.title && <span className="text-[10px] text-zinc-600">{contact.title}</span>}
+              <span className="text-xs text-zinc-600">{contact.name}</span>
+              {contact.title && <span className="text-[10px] text-zinc-400">{contact.title}</span>}
               {contact.linkedin_url && (
                 <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer"
                   className="text-blue-500 shrink-0"><ExternalLink className="w-3 h-3" /></a>
               )}
               {contact.twitter_url && (
                 <a href={contact.twitter_url} target="_blank" rel="noopener noreferrer"
-                  className={`shrink-0 ${twitterConf === "high" ? "text-blue-400" : "text-yellow-500"}`}>
+                  className={`shrink-0 ${twitterConf === "high" ? "text-blue-500" : "text-yellow-600"}`}>
                   <Twitter className="w-3 h-3" />
                 </a>
               )}
@@ -283,13 +281,13 @@ export function FundedCompanyMobileCard({
         <div className="flex items-center gap-2 shrink-0">
           {companyPageUrl && (
             <a href={companyPageUrl} target="_blank" rel="noopener noreferrer"
-              className="text-zinc-500 hover:text-zinc-200"><Globe className="w-4 h-4" /></a>
+              className="text-zinc-400 hover:text-zinc-700"><Globe className="w-4 h-4" /></a>
           )}
           {company?.linkedin_url && (
             <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer"
-              className="text-zinc-500 hover:text-blue-400"><Linkedin className="w-4 h-4" /></a>
+              className="text-zinc-400 hover:text-blue-600"><Linkedin className="w-4 h-4" /></a>
           )}
-          <button onClick={() => setExpanded(!expanded)} className="text-zinc-500 hover:text-zinc-300">
+          <button onClick={() => setExpanded(!expanded)} className="text-zinc-400 hover:text-zinc-700">
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
         </div>
@@ -299,25 +297,25 @@ export function FundedCompanyMobileCard({
         <select
           value={getOutreachValue(lead.status)}
           onChange={e => setStatus(e.target.value as FundedStatus)}
-          className={`border border-zinc-700/60 rounded-md bg-zinc-800/80 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 px-2 py-1.5 ${getOutreachColor(lead.status)}`}
+          className={`border border-zinc-200 rounded-md bg-white text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-500 px-2 py-1.5 shadow-sm ${getOutreachColor(lead.status)}`}
         >
           {OUTREACH_OPTIONS.map(o => (
-            <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>
+            <option key={o.value} value={o.value} className="text-zinc-800">{o.label}</option>
           ))}
         </select>
         <select
           value={getResponseValue(lead.status)}
           onChange={e => { if (e.target.value) setStatus(e.target.value as FundedStatus); }}
-          className={`border border-zinc-700/60 rounded-md bg-zinc-800/80 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 px-2 py-1.5 ${getResponseColor(lead.status)}`}
+          className={`border border-zinc-200 rounded-md bg-white text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-500 px-2 py-1.5 shadow-sm ${getResponseColor(lead.status)}`}
         >
           {RESPONSE_OPTIONS.map(o => (
-            <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>
+            <option key={o.value} value={o.value} className="text-zinc-800">{o.label}</option>
           ))}
         </select>
       </div>
 
       {expanded && (
-        <div className="mt-3 pt-3 border-t border-zinc-800/40">
+        <div className="mt-3 pt-3 border-t border-zinc-100">
           <ExpandedContent lead={lead} state={state} />
         </div>
       )}
@@ -355,28 +353,28 @@ export default function FundedCompanyRow({
 
   return (
     <>
-      <tr className="hover:bg-zinc-800/20 transition-colors group">
+      <tr className="hover:bg-zinc-50 transition-colors">
 
         {/* Company */}
         <td className="px-4 py-4 min-w-[170px]">
-          <div className="text-sm font-medium text-zinc-100 leading-snug">
+          <div className="text-sm font-medium text-zinc-900 leading-snug">
             {company?.name || "—"}
           </div>
-          <div className="text-[11px] text-zinc-600 mt-0.5">
+          <div className="text-[11px] text-zinc-400 mt-0.5">
             {SOURCE_LABELS[lead.source] || lead.source}
-            {isFollowUp && <span className="text-amber-500 ml-1">· Follow-up</span>}
+            {isFollowUp && <span className="text-amber-600 ml-1">· Follow-up</span>}
           </div>
         </td>
 
         {/* Funding */}
         <td className="px-4 py-4 whitespace-nowrap">
-          <div className="text-sm font-semibold text-emerald-400">{funding}</div>
-          <div className="text-[11px] text-zinc-600">{lead.round_type}</div>
+          <div className="text-sm font-semibold text-emerald-600">{funding}</div>
+          <div className="text-[11px] text-zinc-400">{lead.round_type}</div>
         </td>
 
         {/* Date */}
         <td className="px-4 py-4 whitespace-nowrap">
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs text-zinc-500">
             {lead.announced_date
               ? format(new Date(lead.announced_date + "T00:00:00"), "MMM d, yyyy")
               : "—"}
@@ -388,19 +386,19 @@ export default function FundedCompanyRow({
           <div className="flex items-center gap-3">
             {companyPageUrl ? (
               <a href={companyPageUrl} target="_blank" rel="noopener noreferrer"
-                className="text-zinc-500 hover:text-zinc-200 transition-colors" title="Website">
+                className="text-zinc-400 hover:text-zinc-700 transition-colors">
                 <Globe className="w-4 h-4" />
               </a>
             ) : (
-              <Globe className="w-4 h-4 text-zinc-800" />
+              <Globe className="w-4 h-4 text-zinc-200" />
             )}
             {company?.linkedin_url ? (
               <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer"
-                className="text-zinc-500 hover:text-blue-400 transition-colors" title="Company LinkedIn">
+                className="text-zinc-400 hover:text-blue-600 transition-colors">
                 <Linkedin className="w-4 h-4" />
               </a>
             ) : (
-              <Linkedin className="w-4 h-4 text-zinc-800" />
+              <Linkedin className="w-4 h-4 text-zinc-200" />
             )}
           </div>
         </td>
@@ -410,23 +408,20 @@ export default function FundedCompanyRow({
           {contact ? (
             <div className="flex items-center gap-1.5">
               <div className="min-w-0">
-                <div className="text-sm text-zinc-200 truncate max-w-[140px]">{contact.name}</div>
-                <div className="text-[11px] text-zinc-600 truncate max-w-[140px]">{contact.title}</div>
+                <div className="text-sm text-zinc-800 truncate max-w-[140px]">{contact.name}</div>
+                <div className="text-[11px] text-zinc-400 truncate max-w-[140px]">{contact.title}</div>
               </div>
               {contact.linkedin_url && (
                 <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer"
-                  className="text-blue-500 hover:text-blue-300 transition-colors shrink-0">
+                  className="text-blue-500 hover:text-blue-700 transition-colors shrink-0">
                   <ExternalLink className="w-3 h-3" />
                 </a>
               )}
               {contact.twitter_url && (() => {
                 const conf = twitterConf;
-                const iconColor = conf === "high"
-                  ? "text-blue-400 hover:text-blue-300"
-                  : "text-yellow-500 hover:text-yellow-300";
                 return (
                   <a href={contact.twitter_url!} target="_blank" rel="noopener noreferrer"
-                    className={`transition-colors shrink-0 ${iconColor}`}
+                    className={`transition-colors shrink-0 ${conf === "high" ? "text-blue-500 hover:text-blue-700" : "text-yellow-600 hover:text-yellow-700"}`}
                     title={conf === "high" ? "X — bio-verified match" : "X — unverified"}>
                     <Twitter className="w-3 h-3" />
                   </a>
@@ -434,7 +429,7 @@ export default function FundedCompanyRow({
               })()}
             </div>
           ) : (
-            <span className="text-[11px] text-zinc-700 italic">No contact</span>
+            <span className="text-[11px] text-zinc-300 italic">No contact</span>
           )}
         </td>
 
@@ -443,10 +438,10 @@ export default function FundedCompanyRow({
           <select
             value={getOutreachValue(lead.status)}
             onChange={e => setStatus(e.target.value as FundedStatus)}
-            className={`border border-zinc-700/60 rounded-md bg-zinc-800/80 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 px-2 py-1 ${getOutreachColor(lead.status)}`}
+            className={`border border-zinc-200 rounded-md bg-white text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-500 px-2 py-1 shadow-sm ${getOutreachColor(lead.status)}`}
           >
             {OUTREACH_OPTIONS.map(o => (
-              <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>
+              <option key={o.value} value={o.value} className="text-zinc-800">{o.label}</option>
             ))}
           </select>
         </td>
@@ -456,10 +451,10 @@ export default function FundedCompanyRow({
           <select
             value={getResponseValue(lead.status)}
             onChange={e => { if (e.target.value) setStatus(e.target.value as FundedStatus); }}
-            className={`border border-zinc-700/60 rounded-md bg-zinc-800/80 text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 px-2 py-1 ${getResponseColor(lead.status)}`}
+            className={`border border-zinc-200 rounded-md bg-white text-xs font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-500 px-2 py-1 shadow-sm ${getResponseColor(lead.status)}`}
           >
             {RESPONSE_OPTIONS.map(o => (
-              <option key={o.value} value={o.value} className="bg-zinc-900 text-zinc-200">{o.label}</option>
+              <option key={o.value} value={o.value} className="text-zinc-800">{o.label}</option>
             ))}
           </select>
         </td>
@@ -468,7 +463,7 @@ export default function FundedCompanyRow({
         <td className="px-4 py-4">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="text-zinc-700 hover:text-zinc-400 transition-colors"
+            className="text-zinc-300 hover:text-zinc-600 transition-colors"
           >
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
@@ -476,7 +471,7 @@ export default function FundedCompanyRow({
       </tr>
 
       {expanded && (
-        <tr className="bg-zinc-900/30 border-b border-zinc-800/40">
+        <tr className="bg-zinc-50 border-b border-zinc-100">
           <td colSpan={8} className="px-6 py-4">
             <ExpandedContent lead={lead} state={state} />
           </td>

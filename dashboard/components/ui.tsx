@@ -18,13 +18,13 @@ export function Badge({
   className?: string;
 }) {
   const variants = {
-    default: "bg-zinc-700 text-zinc-300",
-    green:   "bg-emerald-900/60 text-emerald-400 border border-emerald-800",
-    yellow:  "bg-amber-900/60 text-amber-400 border border-amber-800",
-    red:     "bg-red-900/60 text-red-400 border border-red-800",
-    blue:    "bg-blue-900/60 text-blue-400 border border-blue-800",
-    purple:  "bg-indigo-900/60 text-indigo-400 border border-indigo-800",
-    gray:    "bg-zinc-800 text-zinc-500",
+    default: "bg-zinc-100 text-zinc-600",
+    green:   "bg-emerald-50 text-emerald-700 border border-emerald-200",
+    yellow:  "bg-amber-50 text-amber-700 border border-amber-200",
+    red:     "bg-red-50 text-red-600 border border-red-200",
+    blue:    "bg-blue-50 text-blue-700 border border-blue-200",
+    purple:  "bg-violet-50 text-violet-700 border border-violet-200",
+    gray:    "bg-zinc-100 text-zinc-500",
   };
   return (
     <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium", variants[variant], className)}>
@@ -41,7 +41,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={cn("bg-zinc-900 border border-zinc-800 rounded-2xl p-4", className)}>
+    <div className={cn("bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm", className)}>
       {children}
     </div>
   );
@@ -63,11 +63,11 @@ export function Button({
   className?: string;
 }) {
   const variants = {
-    default: "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700",
-    primary: "bg-indigo-600 hover:bg-indigo-500 text-white",
-    ghost:   "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200",
-    danger:  "bg-red-900/40 hover:bg-red-900/60 text-red-400 border border-red-800",
-    success: "bg-emerald-900/40 hover:bg-emerald-900/60 text-emerald-400 border border-emerald-800",
+    default: "bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 shadow-sm",
+    primary: "bg-violet-600 hover:bg-violet-500 text-white shadow-sm",
+    ghost:   "hover:bg-zinc-100 text-zinc-500 hover:text-zinc-800",
+    danger:  "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200",
+    success: "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200",
   };
   const sizes = {
     sm: "px-2.5 py-1.5 text-xs",
@@ -91,7 +91,7 @@ export function Button({
 }
 
 export function Divider() {
-  return <div className="border-t border-zinc-800 my-3" />;
+  return <div className="border-t border-zinc-200 my-3" />;
 }
 
 export function Textarea({
@@ -114,7 +114,7 @@ export function Textarea({
       placeholder={placeholder}
       rows={rows}
       className={cn(
-        "w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none",
+        "w-full bg-white border border-zinc-200 rounded-xl px-3 py-2.5 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-violet-500 resize-none shadow-sm",
         className
       )}
     />

@@ -88,29 +88,29 @@ export default function JobsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0f0f10] flex items-center justify-center">
-        <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#F5F5F4] flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0f0f10]">
+    <div className="min-h-screen bg-[#F5F5F4]">
 
       {/* ── Page header ── */}
-      <div className="sticky top-0 z-10 bg-[#0f0f10]/95 backdrop-blur border-b border-zinc-800/60">
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-zinc-200">
         <div className="px-4 md:px-6 py-3">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <h1 className="text-base font-semibold text-zinc-100">Job Postings</h1>
+              <h1 className="text-base font-semibold text-zinc-900">Job Postings</h1>
               {lastRun?.completed_at && (
-                <p className="text-xs text-zinc-500 mt-0.5">
+                <p className="text-xs text-zinc-400 mt-0.5">
                   Updated {formatDistanceToNow(new Date(lastRun.completed_at))} ago
                 </p>
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs text-zinc-600 hidden sm:inline">{filtered.length} jobs</span>
+              <span className="text-xs text-zinc-400 hidden sm:inline">{filtered.length} jobs</span>
 
               {/* Filter dropdown */}
               <div className="relative" ref={filterRef}>
@@ -118,8 +118,8 @@ export default function JobsPage() {
                   onClick={() => setFilterOpen(o => !o)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors text-xs font-medium ${
                     filterOpen
-                      ? "border-indigo-500/60 bg-indigo-600/10 text-indigo-300"
-                      : "border-zinc-700/60 bg-zinc-800/60 hover:bg-zinc-700/60 text-zinc-300"
+                      ? "border-violet-400 bg-violet-50 text-violet-700"
+                      : "border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600 shadow-sm"
                   }`}
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -127,17 +127,17 @@ export default function JobsPage() {
                 </button>
 
                 {filterOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-44 bg-zinc-900 border border-zinc-700/60 rounded-xl shadow-xl overflow-hidden z-50">
+                  <div className="absolute right-0 top-full mt-1.5 w-44 bg-white border border-zinc-200 rounded-xl shadow-lg overflow-hidden z-50">
                     {FILTERS.map(f => (
                       <button
                         key={f.value}
                         onClick={() => { setFilter(f.value); setFilterOpen(false); }}
-                        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-zinc-800 transition-colors text-left"
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-zinc-50 transition-colors text-left"
                       >
-                        <span className={filter === f.value ? "text-indigo-300 font-medium" : "text-zinc-300"}>
+                        <span className={filter === f.value ? "text-violet-700 font-medium" : "text-zinc-600"}>
                           {f.label}
                         </span>
-                        {filter === f.value && <Check className="w-3 h-3 text-indigo-400" />}
+                        {filter === f.value && <Check className="w-3 h-3 text-violet-500" />}
                       </button>
                     ))}
                   </div>
@@ -147,7 +147,7 @@ export default function JobsPage() {
               <button
                 onClick={() => load(true)}
                 disabled={refreshing}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700/60 bg-zinc-800/60 hover:bg-zinc-700/60 transition-colors text-xs text-zinc-300 disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors text-xs text-zinc-600 shadow-sm disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
                 <span className="hidden sm:inline">Reload</span>
@@ -159,12 +159,12 @@ export default function JobsPage() {
 
       {filtered.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-sm text-zinc-600">No jobs here. Pipeline runs daily at 8 AM IST.</p>
+          <p className="text-sm text-zinc-400">No jobs here. Pipeline runs daily at 8 AM IST.</p>
         </div>
       ) : (
         <>
           {/* ── Mobile card list ── */}
-          <div className="md:hidden rounded-xl border border-zinc-800/60 mx-4 mt-4 mb-8 overflow-hidden">
+          <div className="md:hidden rounded-xl border border-zinc-200 mx-4 mt-4 mb-8 overflow-hidden bg-white shadow-sm">
             {filtered.map(job => (
               <JobPostingMobileCard key={job.id} job={job} onUpdate={handleUpdate} />
             ))}
@@ -172,16 +172,16 @@ export default function JobsPage() {
 
           {/* ── Desktop table ── */}
           <div className="hidden md:block px-6 pt-4 pb-8">
-            <div className="overflow-x-auto rounded-xl border border-zinc-800/60">
+            <div className="overflow-x-auto rounded-xl border border-zinc-200 shadow-sm bg-white">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-zinc-800/60 bg-zinc-900/40">
-                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Role</th>
-                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Source</th>
-                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Company</th>
-                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Location</th>
+                  <tr className="border-b border-zinc-200 bg-zinc-50">
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Role</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Source</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Company</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Location</th>
                     <th
-                      className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-300 transition-colors"
+                      className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 uppercase tracking-wider cursor-pointer select-none hover:text-zinc-600 transition-colors"
                       onClick={() => setSortDir(d => d === "asc" ? "desc" : "asc")}
                     >
                       <span className="flex items-center">
@@ -191,14 +191,14 @@ export default function JobsPage() {
                           : <ArrowDown className="w-3 h-3 ml-1" />}
                       </span>
                     </th>
-                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Contact</th>
-                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Application</th>
-                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Outreach</th>
-                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Open</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Contact</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Application</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Outreach</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Open</th>
                     <th className="px-4 py-2.5 w-8" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800/40">
+                <tbody className="divide-y divide-zinc-100">
                   {filtered.map(job => (
                     <JobPostingRow key={job.id} job={job} onUpdate={handleUpdate} />
                   ))}
