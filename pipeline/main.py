@@ -12,6 +12,7 @@ Execution order:
   7. Complete pipeline_run record
 """
 import sys
+import json
 import traceback
 from datetime import datetime, timezone
 from urllib.parse import urlparse, urlunparse
@@ -353,7 +354,11 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
                 contact_name   = contact_name,
                 contact_title  = contact_title,
             )
-            description_summary = "\n".join(result.get("requirements_bullets", []))
+            description_summary = json.dumps({
+                "location":     result.get("location"),
+                "salary":       result.get("salary"),
+                "requirements": result.get("requirements_bullets", []),
+            })
             
             if needs_exp_groq and result.get("experience_match"):
                 groq_exp_match = result["experience_match"]
