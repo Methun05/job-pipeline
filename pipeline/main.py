@@ -168,14 +168,25 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
     except Exception as e:
         stats.add_error("apollo_track_a", str(e))
 
-    # Exa: fill in missing company LinkedIn
+    # Company social enrichment — Apollo org enrich (free) → Exa/Tavily fallback
     try:
         company_row_current = db.get_company(company_id)
-        if company_row_current and not company_row_current.get("linkedin_url"):
-            linkedin = find_company_linkedin(name, domain or "")
-            if linkedin:
-                db.update_company(company_id, {"linkedin_url": linkedin})
-                print(f"[Exa] Company LinkedIn: {linkedin}")
+        needs_linkedin = not (company_row_current or {}).get("linkedin_url")
+        if needs_linkedin and domain:
+            apollo_org = apollo.enrich_company(domain)
+            org_update = {}
+            if apollo_org.get("linkedin_url"):
+                org_update["linkedin_url"] = apollo_org["linkedin_url"]
+                print(f"[Apollo] Company LinkedIn: {apollo_org['linkedin_url']}")
+            if apollo_org.get("employee_count") and not (company_row_current or {}).get("employee_count"):
+                org_update["employee_count"] = apollo_org["employee_count"]
+            if org_update:
+                db.update_company(company_id, org_update)
+            elif needs_linkedin:
+                linkedin = find_company_linkedin(name, domain or "")
+                if linkedin:
+                    db.update_company(company_id, {"linkedin_url": linkedin})
+                    print(f"[Exa] Company LinkedIn: {linkedin}")
     except Exception:
         pass
 
@@ -359,14 +370,27 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
     except Exception as e:
         stats.add_error("apollo_track_b", str(e))
 
-    # Exa: fill in missing company LinkedIn
+    # Company social enrichment — Apollo org enrich (free) → Exa/Tavily fallback
     try:
         company_row_current = db.get_company(company_id)
-        if company_row_current and not company_row_current.get("linkedin_url"):
-            linkedin = find_company_linkedin(name, domain or "")
-            if linkedin:
-                db.update_company(company_id, {"linkedin_url": linkedin})
-                print(f"[Exa] Company LinkedIn: {linkedin}")
+        needs_linkedin = not (company_row_current or {}).get("linkedin_url")
+        if needs_linkedin and domain:
+            # Step 1: Apollo /organizations/enrich (free, most accurate)
+            apollo_org = apollo.enrich_company(domain)
+            org_update = {}
+            if apollo_org.get("linkedin_url"):
+                org_update["linkedin_url"] = apollo_org["linkedin_url"]
+                print(f"[Apollo] Company LinkedIn: {apollo_org['linkedin_url']}")
+            if apollo_org.get("employee_count") and not (company_row_current or {}).get("employee_count"):
+                org_update["employee_count"] = apollo_org["employee_count"]
+            if org_update:
+                db.update_company(company_id, org_update)
+            # Step 2: Exa/Tavily fallback if Apollo found nothing
+            elif needs_linkedin:
+                linkedin = find_company_linkedin(name, domain)
+                if linkedin:
+                    db.update_company(company_id, {"linkedin_url": linkedin})
+                    print(f"[Exa] Company LinkedIn: {linkedin}")
     except Exception:
         pass
 
