@@ -88,23 +88,24 @@ Return ONLY the note text, no quotes.`;
         break;
 
       case "generate_summary":
-        prompt = `${jobContext}
+        prompt = `${profile}
 
-Task: Extract structured information from this job description for a Product Designer reviewing it.
+${jobContext}
 
-Return ONLY a valid JSON object with these keys:
-- "location": string — the job location or remote policy (e.g. "Remote", "New York, NY", "Hybrid – London"). If not found, use null.
-- "salary": string — compensation/salary range if mentioned (e.g. "$120k–$160k", "€80k + equity"). If not found, use null.
-- "requirements": string[] — exactly 4–6 concise bullet points covering the must-have skills, experience, and design expectations.
+Task: Analyze this job posting and extract structured information for a Product Designer evaluating it.
 
-Example:
+Return ONLY a JSON object with these exact keys:
 {
-  "location": "Remote (US only)",
-  "salary": "$130k–$160k + equity",
-  "requirements": ["4+ years product design", "Web3 or DeFi experience", "Figma & design systems", "End-to-end ownership of features"]
+  "location": "city/remote info extracted from description, or null if not mentioned",
+  "salary": "salary or compensation range if mentioned, or null if not mentioned",
+  "requirements": ["requirement 1", "requirement 2", "requirement 3"]
 }
 
-Return ONLY the JSON object, no markdown, no extra text.`;
+For requirements: exactly 3 strings, each the most important thing a Product Designer needs for this role.
+For location: prefer info from the description over the job title. null if truly absent.
+For salary: null if not mentioned at all.
+
+Return ONLY the JSON object, no markdown, no explanation.`;
         break;
 
       default:
