@@ -1,6 +1,6 @@
 "use client";
 import { format } from "date-fns";
-import { ExternalLink, Globe, Linkedin, Twitter } from "lucide-react";
+import { ExternalLink, Globe, Linkedin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { JobPosting, AppStatus, OutreachStatus } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
@@ -83,19 +83,6 @@ export function JobPostingMobileCard({ job, onUpdate }: { job: JobPosting; onUpd
               {job.posted_at ? format(new Date(job.posted_at), "MMM d") : format(new Date(job.created_at), "MMM d") + " (fetched)"}
             </span>
           </div>
-          {contact && (
-            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              <span className="text-xs text-zinc-600 dark:text-zinc-400">{contact.name}</span>
-              {contact.title && <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{contact.title}</span>}
-              {contact.linkedin_url && <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-500"><ExternalLink className="w-3 h-3" /></a>}
-              {contact.twitter_url && (
-                <a href={contact.twitter_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                  className={contact.twitter_confidence === "high" ? "text-blue-500" : "text-yellow-600 dark:text-yellow-400"}>
-                  <Twitter className="w-3 h-3" />
-                </a>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
@@ -151,26 +138,6 @@ export default function JobPostingRow({ job, onUpdate }: { job: JobPosting; onUp
             <span className="text-xs text-zinc-500 dark:text-zinc-400">{format(new Date(job.created_at), "MMM d, yyyy")}</span>
             <div className="text-[10px] text-zinc-400 dark:text-zinc-600 mt-0.5">fetched</div>
           </div>
-        )}
-      </td>
-
-      <td className="px-4 py-4 min-w-[140px]">
-        {contact ? (
-          <div className="flex items-center gap-1.5">
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate max-w-[120px]">{contact.name}</div>
-              <div className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate max-w-[120px]">{contact.title}</div>
-            </div>
-            {contact.linkedin_url && <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-500 hover:text-blue-700 transition-colors shrink-0"><ExternalLink className="w-3 h-3" /></a>}
-            {contact.twitter_url && (
-              <a href={contact.twitter_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                className={`transition-colors shrink-0 ${contact.twitter_confidence === "high" ? "text-blue-500 hover:text-blue-700" : "text-yellow-600 dark:text-yellow-400 hover:text-yellow-700"}`}>
-                <Twitter className="w-3 h-3" />
-              </a>
-            )}
-          </div>
-        ) : (
-          <span className="text-[11px] text-zinc-300 dark:text-zinc-600 italic">No contact</span>
         )}
       </td>
 

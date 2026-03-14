@@ -119,7 +119,7 @@ export default function JobDetailPage() {
       if (action === "generate_cover_letter") updates = { cover_letter: data.text };
       else if (action === "generate_linkedin")  updates = { linkedin_note: data.text };
       else if (action === "generate_email")     updates = { email_draft: `Subject: ${data.subject}\n\n${data.body}` };
-      else if (action === "generate_summary")   updates = { description_summary: Array.isArray(data) ? data.join("\n") : data.text };
+      else if (action === "generate_summary")   updates = { description_summary: JSON.stringify(data) };
 
       await supabase.from("job_postings").update(updates).eq("id", target.id);
       setJob(prev => prev ? { ...prev, ...updates } : prev);
@@ -185,49 +185,51 @@ export default function JobDetailPage() {
           
           {/* Company + Founder Card */}
           {(company || contact) && (
-            <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
 
               {/* Company section */}
               {company && (
-                <div className={contact ? "mb-4 pb-4 border-b border-zinc-100 dark:border-zinc-800" : ""}>
-                  <h3 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Company</h3>
+                <div className={`px-5 pt-5 ${contact ? "pb-4 border-b border-zinc-100 dark:border-zinc-800" : "pb-5"}`}>
+                  <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-3">Company</p>
                   <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{company.name}</p>
                   {(company.domain || company.website) && (
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
                       {company.domain || company.website?.replace(/^https?:\/\//, "")}
                     </p>
                   )}
-                  <div className="flex gap-2 mt-3">
-                    {websiteUrl && (
-                      <a href={websiteUrl} target="_blank" rel="noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                        <Globe className="w-3.5 h-3.5" /> Website
-                      </a>
-                    )}
-                    {company.linkedin_url && (
-                      <a href={company.linkedin_url} target="_blank" rel="noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                        <Linkedin className="w-3.5 h-3.5" /> LinkedIn
-                      </a>
-                    )}
-                  </div>
+                  {(websiteUrl || company.linkedin_url) && (
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {websiteUrl && (
+                        <a href={websiteUrl} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                          <Globe className="w-3.5 h-3.5" /> Website
+                        </a>
+                      )}
+                      {company.linkedin_url && (
+                        <a href={company.linkedin_url} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                          <Linkedin className="w-3.5 h-3.5" /> LinkedIn
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Founder / Contact section */}
               {contact && (
-                <div>
-                  <h3 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Founder / Contact</h3>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 font-semibold text-sm shrink-0">
+                <div className="px-5 py-5">
+                  <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-3">Founder / Contact</p>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 font-semibold shrink-0">
                       {contact.name.charAt(0)}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{contact.name}</p>
-                      {contact.title && <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{contact.title}</p>}
+                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{contact.name}</p>
+                      {contact.title && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">{contact.title}</p>}
                     </div>
                   </div>
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex flex-wrap gap-2">
                     {contact.linkedin_url && (
                       <a href={contact.linkedin_url} target="_blank" rel="noreferrer"
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
@@ -242,7 +244,7 @@ export default function JobDetailPage() {
                             : "border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
                         }`}>
                         <Twitter className="w-3.5 h-3.5" />
-                        {contact.twitter_confidence !== "high" && <span className="text-[10px]">unverified</span>}
+                        {contact.twitter_confidence !== "high" && <span className="ml-0.5">Unverified</span>}
                       </a>
                     )}
                   </div>
@@ -270,7 +272,7 @@ export default function JobDetailPage() {
             {/* Tabs */}
             <div className="flex border-b border-zinc-200 dark:border-zinc-800 overflow-x-auto hide-scrollbar bg-zinc-50/50 dark:bg-zinc-900/50">
               {[
-                { id: "summary", label: "Requirements" },
+                { id: "summary", label: "Job Summary" },
                 { id: "cover_letter", label: "Cover Letter" },
                 { id: "email", label: "Email Draft" },
                 { id: "linkedin", label: "LinkedIn Note" },
@@ -301,32 +303,16 @@ export default function JobDetailPage() {
                 </div>
               )}
 
-              {/* Requirements Tab */}
+              {/* Summary Tab */}
               {activeTab === "summary" && (
                 <div>
                   {job.description_summary ? (
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Key Requirements</h4>
-                        <button onClick={() => generateContent("generate_summary")} disabled={genLoading === "generate_summary"}
-                          className="text-xs text-zinc-400 hover:text-violet-600 transition-colors disabled:opacity-50">
-                          {genLoading === "generate_summary" ? "Regenerating..." : "↺ Regenerate"}
-                        </button>
-                      </div>
-                      <ul className="space-y-2">
-                        {job.description_summary.split("\n").filter(Boolean).map((b, i) => (
-                          <li key={i} className="flex gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                            <span className="text-violet-500 mt-0.5 shrink-0">›</span>
-                            {b.replace(/^[-•]\s*/, "")}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    <SummaryDisplay raw={job.description_summary} />
                   ) : (
                     <EmptyGenerationState
                       loading={genLoading === "generate_summary"}
                       onClick={() => generateContent("generate_summary")}
-                      label="Extract Requirements"
+                      label="Analyse Job Posting"
                     />
                   )}
                 </div>
@@ -375,6 +361,39 @@ export default function JobDetailPage() {
         </div>
 
       </div>
+    </div>
+  );
+}
+
+function SummaryDisplay({ raw }: { raw: string }) {
+  let data: { location?: string | null; salary?: string | null; requirements?: string[] } = {};
+  try { data = JSON.parse(raw); } catch { data = { requirements: raw.split("\n").filter(Boolean) }; }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700">
+          <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-1.5">Location</p>
+          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{data.location || "Not specified"}</p>
+        </div>
+        <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700">
+          <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-1.5">Salary / Payout</p>
+          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{data.salary || "Not mentioned"}</p>
+        </div>
+      </div>
+      {data.requirements && data.requirements.length > 0 && (
+        <div>
+          <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-3">Key Requirements</p>
+          <ul className="space-y-2.5">
+            {data.requirements.map((req, i) => (
+              <li key={i} className="flex gap-2.5 text-sm text-zinc-700 dark:text-zinc-300">
+                <span className="text-violet-500 mt-0.5 shrink-0">›</span>
+                <span>{req.replace(/^[-•]\s*/, "")}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

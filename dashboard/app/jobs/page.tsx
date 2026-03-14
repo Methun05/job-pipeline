@@ -191,7 +191,6 @@ export default function JobsPage() {
                           : <ArrowDown className="w-3 h-3 ml-1" />}
                       </span>
                     </th>
-                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Contact</th>
                     <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Application</th>
                     <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Outreach</th>
                     <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Links</th>
