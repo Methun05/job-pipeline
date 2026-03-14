@@ -3,7 +3,7 @@ All Supabase database operations.
 Uses service role key — bypasses RLS.
 """
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from supabase import create_client, Client
 from pipeline.config import SUPABASE_URL, SUPABASE_SERVICE_KEY
@@ -161,11 +161,16 @@ def get_job_by_url(url: str) -> Optional[dict]:
     return res.data[0] if res.data else None
 
 
-def get_job_by_company_title(company_id: str, job_title: str) -> Optional[dict]:
+def get_job_by_company_title(company_id: str, job_title: str, within_days: int = 30) -> Optional[dict]:
+    """Return existing job if same company+title was seen within the last N days.
+    Time-bounded so a re-posted role after 30+ days is treated as a new opening.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=within_days)).isoformat()
     res = (get_client().table("job_postings")
            .select("id")
            .eq("company_id", company_id)
            .eq("job_title", job_title)
+           .gte("created_at", cutoff)
            .execute())
     return res.data[0] if res.data else None
 
