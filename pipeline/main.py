@@ -18,6 +18,7 @@ from urllib.parse import urlparse, urlunparse
 
 import pipeline.db as db
 import pipeline.apollo as apollo
+import pipeline.snov as snov
 import pipeline.generator as gen
 
 from pipeline.dedup.matcher import find_company_match, normalize_domain
@@ -112,14 +113,19 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
     # Add to in-memory list so later iterations benefit from dedup
     existing_companies.append({"id": company_id, "name": name, "domain": domain})
 
-    # Apollo: find contact
-    contact_id   = None
-    contact_name = ""
+    # Apollo → Snov fallback: find contact
+    contact_id    = None
+    contact_name  = ""
     contact_title = ""
     try:
         contact_data = apollo.find_contact(name, domain, None)
-        if contact_data and contact_data.get("apollo_person_id"):
-            # Enrich company record with org data Apollo returned
+        if not contact_data:
+            contact_data = snov.find_contact(name, domain, None)
+            if contact_data:
+                print(f"[Snov] Found contact via fallback: {contact_data.get('name')}")
+
+        if contact_data:
+            # Enrich company record with org data
             org_update = {}
             if contact_data.get("org_website"):
                 org_update["website"] = contact_data["org_website"]
@@ -128,11 +134,19 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
             if org_update:
                 db.update_company(company_id, org_update)
 
-            existing_contact = db.get_contact_by_apollo_id(contact_data["apollo_person_id"])
+            apollo_id = contact_data.get("apollo_person_id")
+            existing_contact = db.get_contact_by_apollo_id(apollo_id) if apollo_id else None
             if existing_contact:
                 contact_id = existing_contact["id"]
             else:
-                contact_insert = {k: v for k, v in contact_data.items() if not k.startswith("org_")}
+                # Strip internal/org keys before inserting
+                skip = {k for k in contact_data if k.startswith("org_") or k.startswith("_snov_")}
+                contact_insert = {k: v for k, v in contact_data.items() if k not in skip}
+                # If Snov domain search returned email directly, use it
+                snov_email = contact_data.get("_snov_email")
+                if snov_email:
+                    contact_insert["email"] = snov_email
+                    contact_insert["email_revealed"] = True
                 # Twitter enrichment
                 try:
                     twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
@@ -244,16 +258,23 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
         })
         existing_companies.append({"id": company_id, "name": name, "domain": domain})
 
-    # Apollo: find contact
+    # Apollo → Snov fallback: find contact
     # Skip for recruiter/aggregator sources where company_name is the platform, not the hiring co
     contact_id    = None
     contact_name  = ""
     contact_title = ""
-    skip_apollo   = job.get("source") == "talentweb3"
+    skip_contact  = job.get("source") == "talentweb3"
     try:
-        contact_data = apollo.find_contact(name, domain, None) if not skip_apollo else None
-        if contact_data and contact_data.get("apollo_person_id"):
-            # Enrich company record with org data Apollo returned
+        contact_data = None
+        if not skip_contact:
+            contact_data = apollo.find_contact(name, domain, None)
+            if not contact_data:
+                contact_data = snov.find_contact(name, domain, None)
+                if contact_data:
+                    print(f"[Snov] Found contact via fallback: {contact_data.get('name')}")
+
+        if contact_data:
+            # Enrich company record with org data
             org_update = {}
             if contact_data.get("org_website"):
                 org_update["website"] = contact_data["org_website"]
@@ -262,11 +283,19 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
             if org_update:
                 db.update_company(company_id, org_update)
 
-            existing_contact = db.get_contact_by_apollo_id(contact_data["apollo_person_id"])
+            apollo_id = contact_data.get("apollo_person_id")
+            existing_contact = db.get_contact_by_apollo_id(apollo_id) if apollo_id else None
             if existing_contact:
                 contact_id = existing_contact["id"]
             else:
-                contact_insert = {k: v for k, v in contact_data.items() if not k.startswith("org_")}
+                # Strip internal/org keys before inserting
+                skip = {k for k in contact_data if k.startswith("org_") or k.startswith("_snov_")}
+                contact_insert = {k: v for k, v in contact_data.items() if k not in skip}
+                # If Snov domain search returned email directly, use it
+                snov_email = contact_data.get("_snov_email")
+                if snov_email:
+                    contact_insert["email"] = snov_email
+                    contact_insert["email_revealed"] = True
                 # Twitter enrichment
                 try:
                     twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)

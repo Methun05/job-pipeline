@@ -12,6 +12,8 @@ SUPABASE_URL         = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 GEMINI_API_KEY       = os.getenv("GEMINI_API_KEY", "")
 APOLLO_API_KEY       = os.getenv("APOLLO_API_KEY", "")
+SNOV_CLIENT_ID       = os.getenv("SNOV_CLIENT_ID", "")
+SNOV_CLIENT_SECRET   = os.getenv("SNOV_CLIENT_SECRET", "")
 WEB3CAREER_API_KEY   = os.getenv("WEB3CAREER_API_KEY", "")
 BRAVE_API_KEY        = os.getenv("BRAVE_API_KEY", "")
 

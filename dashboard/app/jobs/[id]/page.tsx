@@ -46,6 +46,10 @@ export default function JobDetailPage() {
   const [genLoading, setGenLoading] = useState<string | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
 
+  // Email reveal
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError]     = useState<string | null>(null);
+
   // Notes
   const [notes, setNotes] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
@@ -128,6 +132,33 @@ export default function JobDetailPage() {
       setGenError(e.message || "Generation failed");
     } finally {
       setGenLoading(null);
+    }
+  }
+
+  async function findEmail() {
+    if (!job?.contacts) return;
+    setEmailLoading(true);
+    setEmailError(null);
+    const c = job.contacts;
+    const domain = job.companies?.domain || job.companies?.website || null;
+    try {
+      const res = await fetch("/api/reveal-email", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          apollo_person_id: c.apollo_person_id,
+          contact_id:       c.id,
+          contact_name:     c.name,
+          contact_domain:   domain,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setJob(prev => prev ? { ...prev, contacts: { ...prev.contacts!, email: data.email } } : prev);
+    } catch (e: any) {
+      setEmailError(e.message || "Failed to find email");
+    } finally {
+      setEmailLoading(false);
     }
   }
 
@@ -229,7 +260,7 @@ export default function JobDetailPage() {
                       {contact.title && <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{contact.title}</p>}
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {contact.linkedin_url && (
                       <a href={contact.linkedin_url} target="_blank" rel="noreferrer"
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
@@ -246,6 +277,26 @@ export default function JobDetailPage() {
                         <Twitter className="w-3.5 h-3.5" />
                         {contact.twitter_confidence !== "high" && <span className="text-[10px]">unverified</span>}
                       </a>
+                    )}
+                  </div>
+
+                  {/* Email section */}
+                  <div className="mt-3">
+                    {contact.email ? (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                        <Mail className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 truncate">{contact.email}</span>
+                        <CopyButton text={contact.email} label="" />
+                      </div>
+                    ) : (
+                      <button onClick={findEmail} disabled={emailLoading}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors disabled:opacity-50">
+                        <Mail className="w-3.5 h-3.5" />
+                        {emailLoading ? "Finding email…" : "Find Email"}
+                      </button>
+                    )}
+                    {emailError && (
+                      <p className="mt-1.5 text-[11px] text-red-500 dark:text-red-400">{emailError}</p>
                     )}
                   </div>
                 </div>
