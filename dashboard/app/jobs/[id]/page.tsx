@@ -183,23 +183,72 @@ export default function JobDetailPage() {
         {/* Left Column: Context */}
         <div className="lg:col-span-4 space-y-6">
           
-          {/* Contact Card */}
-          {contact && (
+          {/* Company + Founder Card */}
+          {(company || contact) && (
             <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-              <h3 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4">Contact Person</h3>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 font-semibold">
-                  {contact.name.charAt(0)}
+
+              {/* Company section */}
+              {company && (
+                <div className={contact ? "mb-4 pb-4 border-b border-zinc-100 dark:border-zinc-800" : ""}>
+                  <h3 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Company</h3>
+                  <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{company.name}</p>
+                  {(company.domain || company.website) && (
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                      {company.domain || company.website?.replace(/^https?:\/\//, "")}
+                    </p>
+                  )}
+                  <div className="flex gap-2 mt-3">
+                    {websiteUrl && (
+                      <a href={websiteUrl} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                        <Globe className="w-3.5 h-3.5" /> Website
+                      </a>
+                    )}
+                    {company.linkedin_url && (
+                      <a href={company.linkedin_url} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                        <Linkedin className="w-3.5 h-3.5" /> LinkedIn
+                      </a>
+                    )}
+                  </div>
                 </div>
+              )}
+
+              {/* Founder / Contact section */}
+              {contact && (
                 <div>
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{contact.name}</p>
-                  <p className="text-xs text-zinc-500">{contact.title}</p>
+                  <h3 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Founder / Contact</h3>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 font-semibold text-sm shrink-0">
+                      {contact.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{contact.name}</p>
+                      {contact.title && <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{contact.title}</p>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    {contact.linkedin_url && (
+                      <a href={contact.linkedin_url} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                        <Linkedin className="w-3.5 h-3.5" /> LinkedIn
+                      </a>
+                    )}
+                    {contact.twitter_url && (
+                      <a href={contact.twitter_url} target="_blank" rel="noreferrer"
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                          contact.twitter_confidence === "high"
+                            ? "border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                            : "border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                        }`}>
+                        <Twitter className="w-3.5 h-3.5" />
+                        {contact.twitter_confidence !== "high" && <span className="text-[10px]">unverified</span>}
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                {contact.linkedin_url && <a href={contact.linkedin_url} target="_blank" rel="noreferrer" className="p-2 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"><Linkedin className="w-4 h-4" /></a>}
-                {websiteUrl && <a href={websiteUrl} target="_blank" rel="noreferrer" className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"><Globe className="w-4 h-4" /></a>}
-              </div>
+              )}
+
             </div>
           )}
 
