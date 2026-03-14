@@ -170,11 +170,12 @@ def find_company_linkedin(company_name: str, domain: str = "") -> str | None:
 
     Data fallback chain (each step tried when previous finds nothing):
       1. Exa search (with quota rotation between key 1 and key 2)
-      2. Hunter.io /companies/find (different data source)
+      2. Tavily (different index — tried when Exa finds nothing)
+      3. Hunter.io /companies/find (dedicated company enrichment API)
 
     Returns linkedin.com/company/... URL or None.
     """
-    # ── Step 1: Exa (with internal quota rotation key 1 → key 2) ─────────────
+    # ── Step 1: Exa ───────────────────────────────────────────────────────────
     if _get_clients():
         try:
             query   = f"{company_name} {domain}".strip() if domain else f"{company_name} crypto web3"
@@ -189,7 +190,13 @@ def find_company_linkedin(company_name: str, domain: str = "") -> str | None:
                 if _LINKEDIN_CO_RE.search(url):
                     return url.split("?")[0].rstrip("/")
         except Exception:
-            pass  # Exa fully down — move to Hunter
+            pass  # Exa fully down — move to Tavily
 
-    # ── Step 2: Hunter (different data source — tried whenever Exa finds nothing)
+    # ── Step 2: Tavily ────────────────────────────────────────────────────────
+    from pipeline.enrichment.tavily_finder import find_company_linkedin as _tavily_linkedin
+    result = _tavily_linkedin(company_name, domain)
+    if result:
+        return result
+
+    # ── Step 3: Hunter ────────────────────────────────────────────────────────
     return _hunter_company_linkedin(domain)

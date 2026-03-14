@@ -2,17 +2,19 @@
 Find a contact's Twitter/X handle.
 
 Data fallback chain (each step tried when previous finds nothing):
-  1. Exa tweet-category search (with internal quota rotation: key 1 → key 2)
-  2. Brave Search (different index — finds handles Exa may have missed)
+  1. Exa  — tweet-category search (quota rotation: key 1 → key 2)
+  2. Tavily — different index, tried when Exa finds nothing
+  3. Brave  — last resort, different index again
 
 Fallback is triggered by "no data found", not by "quota exhausted".
-Brave is ALWAYS tried if Exa returns nothing, regardless of why.
+Each source is always tried until one returns a result.
 """
 import re
 import time
 import requests
 from pipeline.config import BRAVE_API_KEY, HTTP_TIMEOUT
 from pipeline.enrichment.exa_finder import find_twitter_handle as _exa_find
+from pipeline.enrichment.tavily_finder import find_twitter_handle as _tavily_find
 
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 
@@ -87,16 +89,21 @@ def _brave_find(name: str, company_name: str) -> tuple[str, str] | tuple[None, N
 
 def find_twitter_handle(name: str, company_name: str) -> tuple[str, str] | tuple[None, None]:
     """
-    Find Twitter/X handle using cascading data sources.
-    Each source is tried until one returns a result — stop on first match.
+    Cascading Twitter/X handle search — stop on first result found.
 
-    Step 1 — Exa: returns (url, confidence) or (None, None). Never raises.
-    Step 2 — Brave: tried when Exa finds nothing (different index = different coverage).
+    Step 1 — Exa:    tweet-category, handles internal key 1→2 quota rotation
+    Step 2 — Tavily: different index, tried when Exa finds nothing
+    Step 3 — Brave:  last resort, different index
     """
-    # Step 1: Exa (handles internal quota rotation between its own keys)
+    # Step 1: Exa
     url, confidence = _exa_find(name, company_name)
     if url:
         return url, confidence
 
-    # Step 2: Brave — different data source, always try when Exa finds nothing
+    # Step 2: Tavily
+    url, confidence = _tavily_find(name, company_name)
+    if url:
+        return url, confidence
+
+    # Step 3: Brave
     return _brave_find(name, company_name)
