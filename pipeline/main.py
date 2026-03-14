@@ -14,6 +14,7 @@ Execution order:
 import sys
 import traceback
 from datetime import datetime, timezone
+from urllib.parse import urlparse, urlunparse
 
 import pipeline.db as db
 import pipeline.apollo as apollo
@@ -188,8 +189,19 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
 
 # ── Track B processing ────────────────────────────────────────────────────────
 
+def normalize_job_url(url: str) -> str:
+    """Strip UTM/tracking query params so the same job URL isn't inserted twice."""
+    if not url:
+        return url
+    parsed = urlparse(url)
+    return urlunparse(parsed._replace(query="", fragment=""))
+
+
 def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats):
     """Process one job posting through filter → dedup → enrich → save."""
+
+    # Normalize URL before dedup (strips UTM params)
+    job["job_url"] = normalize_job_url(job["job_url"])
 
     # URL dedup (fastest check first)
     if db.get_job_by_url(job["job_url"]):
@@ -220,6 +232,10 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
     existing_id = find_company_match(name, domain, existing_companies)
     if existing_id:
         company_id = existing_id
+        # Secondary dedup: same company + same title (catches same job listed with different URLs)
+        if db.get_job_by_company_title(company_id, job["job_title"]):
+            stats.track_b_skipped_dedup += 1
+            return
     else:
         company_id = db.upsert_company({
             "name":    name,

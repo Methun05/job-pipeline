@@ -161,6 +161,15 @@ def get_job_by_url(url: str) -> Optional[dict]:
     return res.data[0] if res.data else None
 
 
+def get_job_by_company_title(company_id: str, job_title: str) -> Optional[dict]:
+    res = (get_client().table("job_postings")
+           .select("id")
+           .eq("company_id", company_id)
+           .eq("job_title", job_title)
+           .execute())
+    return res.data[0] if res.data else None
+
+
 def insert_job_posting(data: dict) -> str:
     # Strip keys not in schema to avoid errors
     allowed = {
