@@ -8,6 +8,7 @@ Notes:
 - HTML in description stripped via BeautifulSoup
 """
 import feedparser
+import html
 from bs4 import BeautifulSoup
 from pipeline.config import HTTP_TIMEOUT
 
@@ -44,7 +45,7 @@ def fetch() -> list[dict]:
     results = []
     for entry in feed.entries:
         try:
-            title   = entry.get("title", "").strip()
+            title   = html.unescape(entry.get("title", "").strip())
             link    = entry.get("link", "").strip()
             company = entry.get("author", "") or entry.get("dc_creator", "")
 

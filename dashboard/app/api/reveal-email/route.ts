@@ -43,12 +43,14 @@ export async function POST(req: NextRequest) {
       try {
         const apolloRes = await fetch("https://api.apollo.io/v1/people/match", {
           method:  "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-Api-Key":    process.env.APOLLO_API_KEY!,
+          },
           body:    JSON.stringify({
-            api_key:                  process.env.APOLLO_API_KEY,
-            id:                       apollo_person_id,
-            reveal_personal_emails:   false,
-            reveal_phone_number:      false,
+            id:                      apollo_person_id,
+            reveal_personal_emails:  false,
+            reveal_phone_number:     false,
           }),
         });
         const data = await apolloRes.json();
@@ -77,7 +79,7 @@ export async function POST(req: NextRequest) {
 
       if (!resolvedDomain && company_name) {
         const companyRes  = await fetch(
-          `https://api.hunter.io/v2/companies/find?company=${encodeURIComponent(company_name)}&api_key=${process.env.HUNTER_API_KEY}`
+          `https://api.hunter.io/v2/companies/find?domain=${encodeURIComponent(resolvedDomain || "")}&api_key=${process.env.HUNTER_API_KEY}`
         );
         const companyData = await companyRes.json();
         resolvedDomain    = companyData?.data?.domain ?? null;
@@ -87,6 +89,8 @@ export async function POST(req: NextRequest) {
         const nameParts  = contact_name.trim().split(" ");
         const first_name = nameParts[0] || "";
         const last_name  = nameParts.slice(1).join(" ") || "";
+        // Hunter needs both first and last name to find email
+        if (!last_name) throw new Error("single-name contact — Hunter skipped");
 
         const hunterRes  = await fetch(
           `https://api.hunter.io/v2/email-finder?domain=${encodeURIComponent(resolvedDomain)}&first_name=${encodeURIComponent(first_name)}&last_name=${encodeURIComponent(last_name)}&api_key=${process.env.HUNTER_API_KEY}`

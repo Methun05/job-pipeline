@@ -5,6 +5,7 @@ Feed: https://cryptocurrencyjobs.co/index.xml
 Fields available: title, company (dc:creator), link, pubDate, description, tags
 """
 import feedparser
+import html
 from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
 from pipeline.config import TRACK_B_HOURS_WINDOW, HTTP_TIMEOUT
@@ -42,7 +43,7 @@ def fetch() -> list[dict]:
             if not published or published < cutoff:
                 continue
 
-            raw_title = entry.get("title", "").strip()
+            raw_title = html.unescape(entry.get("title", "").strip())
             link      = entry.get("link", "").strip()
 
             # Feed title format is "Job Title at Company" — split on " at "
