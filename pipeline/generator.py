@@ -2,50 +2,92 @@
 Gemini-powered content generation.
 One API call per company (Track A) or job posting (Track B).
 All tasks batched into a single prompt per record.
+
+Key fallback: if primary key hits daily quota, auto-rotates to GEMINI_API_KEY_2.
 """
 import json
 import re
 import time
 import requests
 from google import genai
-from pipeline.config import GEMINI_API_KEY, GEMINI_MODEL, GEMINI_ENABLED, PROFILE, HTTP_TIMEOUT
+from pipeline.config import GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_MODEL, GEMINI_ENABLED, PROFILE, HTTP_TIMEOUT
 from bs4 import BeautifulSoup
 
-_client = None
+# ── Client pool ────────────────────────────────────────────────────────────────
+_clients: list | None = None
+_active_idx: int      = 0   # which key we're currently using
 
-def get_client():
-    global _client
-    if _client is None:
-        _client = genai.Client(api_key=GEMINI_API_KEY)
-    return _client
+
+def _get_clients() -> list:
+    global _clients
+    if _clients is None:
+        pool = [genai.Client(api_key=GEMINI_API_KEY)]
+        if GEMINI_API_KEY_2:
+            pool.append(genai.Client(api_key=GEMINI_API_KEY_2))
+        _clients = pool
+    return _clients
+
+
+def _active_client():
+    return _get_clients()[_active_idx]
+
+
+def _rotate_key():
+    """Switch to the next available key. Returns True if rotated, False if none left."""
+    global _active_idx
+    clients = _get_clients()
+    if _active_idx + 1 < len(clients):
+        _active_idx += 1
+        print(f"[Gemini] Primary key quota exhausted — switching to fallback key #{_active_idx + 1}")
+        return True
+    return False
+
+
+def _raw_generate(prompt: str) -> str:
+    """
+    Call Gemini and return raw text. Handles rate limits and key rotation.
+    Raises on unrecoverable failure.
+    """
+    if not GEMINI_ENABLED:
+        raise RuntimeError("Gemini disabled (GEMINI_ENABLED=False)")
+
+    time.sleep(1)  # respect 15 RPM free-tier limit
+
+    for key_attempt in range(len(_get_clients())):
+        client = _active_client()
+        for retry in range(2):
+            try:
+                resp = client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=prompt,
+                )
+                return resp.text.strip()
+            except Exception as e:
+                err = str(e)
+                if "429" in err:
+                    is_per_day = "PerDay" in err or "per_day" in err.lower() or "daily" in err.lower()
+                    if is_per_day:
+                        # Quota fully exhausted for this key — try next
+                        if not _rotate_key():
+                            raise RuntimeError("All Gemini API keys have exhausted their daily quota.")
+                        break  # break retry loop, outer loop picks next client
+                    # Regular RPM 429 — wait and retry once
+                    if retry == 0:
+                        print("[Gemini] 429 rate limit — waiting 60s before retry...")
+                        time.sleep(60)
+                        continue
+                raise
+
+    raise RuntimeError("All Gemini API keys failed.")
 
 
 def _call_gemini(prompt: str) -> dict:
-    """Call Gemini, parse JSON response. Retries once on 429. Raises on failure."""
-    if not GEMINI_ENABLED:
-        raise RuntimeError("Gemini disabled (GEMINI_ENABLED=False)")
-    time.sleep(1)  # avoid 429 on free tier (15 RPM limit)
-    for attempt in range(2):
-        try:
-            resp = get_client().models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt,
-            )
-            text = resp.text.strip()
-            json_match = re.search(r'```(?:json)?\s*([\s\S]+?)\s*```', text)
-            if json_match:
-                text = json_match.group(1)
-            return json.loads(text)
-        except Exception as e:
-            err = str(e)
-            if "429" in err:
-                # Daily quota exhausted — no point retrying, fail fast
-                if "PerDay" in err or "per_day" in err.lower() or attempt > 0:
-                    raise
-                print("[Gemini] 429 rate limit — waiting 60s before retry...")
-                time.sleep(60)
-                continue
-            raise
+    """Call Gemini, return parsed JSON dict."""
+    text = _raw_generate(prompt)
+    json_match = re.search(r'```(?:json)?\s*([\s\S]+?)\s*```', text)
+    if json_match:
+        text = json_match.group(1)
+    return json.loads(text)
 
 
 def fetch_website_text(url: str) -> str:
@@ -60,12 +102,9 @@ def fetch_website_text(url: str) -> str:
         })
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "lxml")
-        # Remove scripts, styles, nav
         for tag in soup(["script", "style", "nav", "footer", "header"]):
             tag.decompose()
-        text = soup.get_text(separator=" ", strip=True)
-        # Truncate to ~1500 chars (enough context for Groq, not wasteful)
-        return text[:1500]
+        return soup.get_text(separator=" ", strip=True)[:1500]
     except Exception:
         return ""
 
@@ -78,10 +117,7 @@ def generate_funded_company_content(
     funding_amount: float,
     round_type: str,
 ) -> dict:
-    """
-    Returns: {summary, linkedin_note, email_subject, email_body}
-    Or raises on total failure.
-    """
+    """Returns: {summary, linkedin_note, email_subject, email_body}"""
     website_text = fetch_website_text(website)
     has_website  = bool(website_text)
 
@@ -115,7 +151,6 @@ def extract_funding_from_article(title: str, summary: str, source: str) -> dict 
     Extracts funding info from TechCrunch/EU-Startups article text.
     Returns normalized dict or None if confidence < 0.7 or not a funding article.
     """
-    p = PROFILE
     prompt = f"""Extract funding round information from this article.
 
 Title: {title}
@@ -211,16 +246,13 @@ Return only the JSON object, no other text."""
 # ── Follow-up message generation ───────────────────────────────────────────────
 
 def generate_followup(
-    context_type: str,   # 'funded' or 'job'
+    context_type: str,
     company_name: str,
     original_message: str,
     contact_name: str = "",
     days_since: int = 7,
 ) -> str:
-    """
-    Generates a follow-up message for a connection that hasn't responded.
-    Returns the follow-up message string.
-    """
+    """Generates a follow-up LinkedIn message. Returns the message string."""
     p = PROFILE
     prompt = f"""Write a follow-up LinkedIn message for {p['name']}, a {p['role']}.
 
@@ -237,13 +269,4 @@ Write a short follow-up message (under 250 characters) that:
 
 Return only the message text, no JSON, no quotes."""
 
-    if not GEMINI_ENABLED:
-        raise RuntimeError("Gemini disabled (GEMINI_ENABLED=False)")
-    try:
-        resp = get_client().models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-        )
-        return resp.text.strip()
-    except Exception as e:
-        raise RuntimeError(f"Follow-up generation failed: {e}")
+    return _raw_generate(prompt)

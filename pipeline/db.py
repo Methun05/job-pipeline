@@ -73,6 +73,11 @@ def get_company_by_domain(domain: str) -> Optional[dict]:
     return res.data[0] if res.data else None
 
 
+def get_company(company_id: str) -> Optional[dict]:
+    res = get_client().table("companies").select("*").eq("id", company_id).limit(1).execute()
+    return res.data[0] if res.data else None
+
+
 def update_company(company_id: str, data: dict):
     get_client().table("companies").update(data).eq("id", company_id).execute()
 

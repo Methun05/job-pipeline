@@ -25,6 +25,7 @@ from pipeline.dedup.matcher import find_company_match, normalize_domain
 from pipeline.filters.experience import classify_experience
 from pipeline.filters.remote_scope import detect_remote_scope
 from pipeline.enrichment.twitter_finder import find_twitter_handle
+from pipeline.enrichment.exa_finder import find_company_linkedin
 from pipeline.config import (
     DESIGN_ROLE_KEYWORDS, FUNDING_MIN_USD, FUNDING_MAX_USD, NINETY_DAY_RESET, GEMINI_ENABLED,
     CLEANUP_DAYS,
@@ -161,6 +162,17 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
             contact_title = contact_data.get("title", "")
     except Exception as e:
         stats.add_error("apollo_track_a", str(e))
+
+    # Exa: fill in missing company LinkedIn
+    try:
+        company_row_current = db.get_company(company_id)
+        if company_row_current and not company_row_current.get("linkedin_url"):
+            linkedin = find_company_linkedin(name, domain or "")
+            if linkedin:
+                db.update_company(company_id, {"linkedin_url": linkedin})
+                print(f"[Exa] Company LinkedIn: {linkedin}")
+    except Exception:
+        pass
 
     # Gemini: generate content (skipped if disabled)
     linkedin_note = None
@@ -310,6 +322,17 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
             contact_title = contact_data.get("title", "")
     except Exception as e:
         stats.add_error("apollo_track_b", str(e))
+
+    # Exa: fill in missing company LinkedIn
+    try:
+        company_row_current = db.get_company(company_id)
+        if company_row_current and not company_row_current.get("linkedin_url"):
+            linkedin = find_company_linkedin(name, domain or "")
+            if linkedin:
+                db.update_company(company_id, {"linkedin_url": linkedin})
+                print(f"[Exa] Company LinkedIn: {linkedin}")
+    except Exception:
+        pass
 
     # Gemini: generate summary and classifications in one call (skipped if disabled)
     description_summary = None

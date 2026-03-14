@@ -11,9 +11,11 @@ load_dotenv()
 SUPABASE_URL         = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 GEMINI_API_KEY       = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_KEY_2     = os.getenv("GEMINI_API_KEY_2", "")
 APOLLO_API_KEY       = os.getenv("APOLLO_API_KEY", "")
 HUNTER_API_KEY       = os.getenv("HUNTER_API_KEY", "")
 BRAVE_API_KEY        = os.getenv("BRAVE_API_KEY", "")
+EXA_API_KEY          = os.getenv("EXA_API_KEY", "")
 
 # ── Gemini model ──────────────────────────────────────────────────────────────
 GEMINI_MODEL    = "gemini-2.5-flash"
