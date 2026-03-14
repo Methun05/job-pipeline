@@ -131,11 +131,11 @@ export default function JobPostingRow({ job, onUpdate }: { job: JobPosting; onUp
         <span className="text-xs text-zinc-400 dark:text-zinc-500">{SOURCE_LABELS[job.source] || job.source}</span>
       </td>
 
-      <td className="px-4 py-4 min-w-[140px]" onClick={(e) => e.stopPropagation()}>
+      <td className="px-4 py-4 min-w-[140px]">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm text-zinc-700 dark:text-zinc-300 cursor-auto">{company?.name || "—"}</span>
-          {websiteUrl && <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="text-zinc-300 dark:text-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors shrink-0"><Globe className="w-3 h-3" /></a>}
-          {company?.linkedin_url && <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-zinc-300 dark:text-zinc-600 hover:text-blue-600 transition-colors shrink-0"><Linkedin className="w-3 h-3" /></a>}
+          <span className="text-sm text-zinc-700 dark:text-zinc-300">{company?.name || "—"}</span>
+          {websiteUrl && <a href={websiteUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-zinc-300 dark:text-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors shrink-0"><Globe className="w-3 h-3" /></a>}
+          {company?.linkedin_url && <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-zinc-300 dark:text-zinc-600 hover:text-blue-600 transition-colors shrink-0"><Linkedin className="w-3 h-3" /></a>}
         </div>
       </td>
 
@@ -154,16 +154,16 @@ export default function JobPostingRow({ job, onUpdate }: { job: JobPosting; onUp
         )}
       </td>
 
-      <td className="px-4 py-4 min-w-[140px]" onClick={(e) => e.stopPropagation()}>
+      <td className="px-4 py-4 min-w-[140px]">
         {contact ? (
           <div className="flex items-center gap-1.5">
-            <div className="min-w-0 cursor-auto">
+            <div className="min-w-0">
               <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate max-w-[120px]">{contact.name}</div>
               <div className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate max-w-[120px]">{contact.title}</div>
             </div>
-            {contact.linkedin_url && <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 transition-colors shrink-0"><ExternalLink className="w-3 h-3" /></a>}
+            {contact.linkedin_url && <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-500 hover:text-blue-700 transition-colors shrink-0"><ExternalLink className="w-3 h-3" /></a>}
             {contact.twitter_url && (
-              <a href={contact.twitter_url} target="_blank" rel="noopener noreferrer"
+              <a href={contact.twitter_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
                 className={`transition-colors shrink-0 ${contact.twitter_confidence === "high" ? "text-blue-500 hover:text-blue-700" : "text-yellow-600 dark:text-yellow-400 hover:text-yellow-700"}`}>
                 <Twitter className="w-3 h-3" />
               </a>
@@ -174,20 +174,20 @@ export default function JobPostingRow({ job, onUpdate }: { job: JobPosting; onUp
         )}
       </td>
 
-      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-        <select value={job.application_status} onChange={e => updateApp(e.target.value as AppStatus)} className={`${selectClass} ${getColor(APP_OPTIONS, job.application_status)}`}>
+      <td className="px-4 py-4">
+        <select value={job.application_status} onChange={e => { e.stopPropagation(); updateApp(e.target.value as AppStatus); }} onClick={(e) => e.stopPropagation()} className={`${selectClass} ${getColor(APP_OPTIONS, job.application_status)}`}>
           {APP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </td>
 
-      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-        <select value={job.outreach_status} onChange={e => updateOutreach(e.target.value as OutreachStatus)} className={`${selectClass} ${getColor(OUTREACH_OPTIONS, job.outreach_status)}`}>
+      <td className="px-4 py-4">
+        <select value={job.outreach_status} onChange={e => { e.stopPropagation(); updateOutreach(e.target.value as OutreachStatus); }} onClick={(e) => e.stopPropagation()} className={`${selectClass} ${getColor(OUTREACH_OPTIONS, job.outreach_status)}`}>
           {OUTREACH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </td>
 
-      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-        <a href={job.job_url} target="_blank" rel="noopener noreferrer"
+      <td className="px-4 py-4">
+        <a href={job.job_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors text-xs font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap shadow-sm">
           <ExternalLink className="w-3 h-3" /> Open
         </a>
