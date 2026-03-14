@@ -1,7 +1,7 @@
 /**
  * Proxy endpoint for email reveal.
  * 1. Try Apollo /people/match (if apollo_person_id available)
- * 2. Fallback to Snov.io email finder (if first_name + last_name + domain available)
+ * 2. Fallback to Hunter.io email finder (if contact_name + contact_domain available)
  * Keeps all API keys server-side only.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   );
 
   let email: string | null = null;
-  let source: "apollo" | "snov" | null = null;
+  let source: "apollo" | "hunter" | null = null;
 
   // ── Step 1: Apollo ─────────────────────────────────────────────────────────
   if (apollo_person_id && process.env.APOLLO_API_KEY) {
@@ -59,54 +59,33 @@ export async function POST(req: NextRequest) {
           }).eq("key", "apollo_credits_remaining");
         }
       } catch {
-        // Apollo failed — fall through to Snov
+        // Apollo failed — fall through to Hunter
       }
     }
   }
 
-  // ── Step 2: Snov.io fallback ────────────────────────────────────────────────
-  if (!email && contact_name && contact_domain &&
-      process.env.SNOV_CLIENT_ID && process.env.SNOV_CLIENT_SECRET) {
+  // ── Step 2: Hunter.io fallback ──────────────────────────────────────────────
+  if (!email && contact_name && contact_domain && process.env.HUNTER_API_KEY) {
     try {
-      // Get Snov access token
-      const tokenRes = await fetch("https://api.snov.io/v1/oauth/access_token", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          grant_type:    "client_credentials",
-          client_id:     process.env.SNOV_CLIENT_ID,
-          client_secret: process.env.SNOV_CLIENT_SECRET,
-        }),
-      });
-      const tokenData = await tokenRes.json();
-      const snovToken = tokenData?.access_token;
+      const nameParts  = contact_name.trim().split(" ");
+      const first_name = nameParts[0] || "";
+      const last_name  = nameParts.slice(1).join(" ") || "";
+      const domain     = contact_domain.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
-      if (snovToken) {
-        const nameParts  = contact_name.trim().split(" ");
-        const first_name = nameParts[0] || "";
-        const last_name  = nameParts.slice(1).join(" ") || "";
-        // Strip protocol from domain
-        const domain = contact_domain.replace(/^https?:\/\//, "").replace(/\/$/, "");
-
-        const snovRes = await fetch("https://api.snov.io/v1/get-emails-from-name", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ first_name, last_name, domain, access_token: snovToken }),
-        });
-        const snovData = await snovRes.json();
-        const emails = (snovData?.data?.emails ?? snovData?.emails ?? []) as Array<{ email: string; emailStatus: string }>;
-        const valid  = emails.filter(e => ["valid", "all"].includes(e.emailStatus));
-        email  = (valid.length ? valid[0] : emails[0])?.email ?? null;
-        if (email) source = "snov";
-      }
+      const hunterRes = await fetch(
+        `https://api.hunter.io/v2/email-finder?domain=${encodeURIComponent(domain)}&first_name=${encodeURIComponent(first_name)}&last_name=${encodeURIComponent(last_name)}&api_key=${process.env.HUNTER_API_KEY}`
+      );
+      const hunterData = await hunterRes.json();
+      email = hunterData?.data?.email ?? null;
+      if (email) source = "hunter";
     } catch {
-      // Snov failed — fall through to not-found
+      // Hunter failed — fall through to not-found
     }
   }
 
   if (!email) {
     return NextResponse.json(
-      { error: "Email not found via Apollo or Snov.io" },
+      { error: "Email not found via Apollo or Hunter.io" },
       { status: 404 }
     );
   }
