@@ -193,9 +193,6 @@ export default function JobPostingRow({ job, onUpdate }: { job: JobPosting; onUp
         </a>
       </td>
       
-      <td className="px-4 py-4 text-right">
-        <span className="text-zinc-300 dark:text-zinc-600 text-xs">View →</span>
-      </td>
     </tr>
   );
 }

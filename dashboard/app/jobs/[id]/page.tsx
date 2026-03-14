@@ -44,7 +44,8 @@ export default function JobDetailPage() {
   
   // State for AI generation
   const [genLoading, setGenLoading] = useState<string | null>(null);
-  
+  const [genError, setGenError] = useState<string | null>(null);
+
   // Notes
   const [notes, setNotes] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
@@ -60,6 +61,10 @@ export default function JobDetailPage() {
       if (data) {
         setJob(data as JobPosting);
         setNotes(data.notes || "");
+        // Auto-generate requirements if not already done
+        if (!data.description_summary && data.description_raw) {
+          generateContent("generate_summary", data as JobPosting);
+        }
       }
       setLoading(false);
     }
@@ -86,46 +91,41 @@ export default function JobDetailPage() {
     setTimeout(() => setSaveState("idle"), 2000);
   }
 
-  async function generateContent(action: "generate_cover_letter" | "generate_email" | "generate_linkedin" | "generate_summary") {
-    if (!job) return;
+  async function generateContent(action: "generate_cover_letter" | "generate_email" | "generate_linkedin" | "generate_summary", jobOverride?: JobPosting) {
+    const target = jobOverride || job;
+    if (!target) return;
     setGenLoading(action);
-    
+    setGenError(null);
+
     try {
       const res = await fetch("/api/generate-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action,
-          jobTitle: job.job_title,
-          companyName: job.companies?.name || "the company",
-          description: job.description_raw,
-          contactName: job.contacts?.name,
-          contactTitle: job.contacts?.title,
-          requirements: job.description_summary
+          jobTitle: target.job_title,
+          companyName: target.companies?.name || "the company",
+          description: target.description_raw,
+          contactName: target.contacts?.name,
+          contactTitle: target.contacts?.title,
+          requirements: target.description_summary,
         })
       });
-      
+
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
       let updates: Partial<JobPosting> = {};
-      
-      if (action === "generate_cover_letter") {
-        updates = { cover_letter: data.text };
-      } else if (action === "generate_linkedin") {
-        updates = { linkedin_note: data.text };
-      } else if (action === "generate_email") {
-        const fullEmail = `Subject: ${data.subject}\n\n${data.body}`;
-        updates = { email_draft: fullEmail };
-      } else if (action === "generate_summary") {
-        updates = { description_summary: data.join("\n") };
-      }
+      if (action === "generate_cover_letter") updates = { cover_letter: data.text };
+      else if (action === "generate_linkedin")  updates = { linkedin_note: data.text };
+      else if (action === "generate_email")     updates = { email_draft: `Subject: ${data.subject}\n\n${data.body}` };
+      else if (action === "generate_summary")   updates = { description_summary: Array.isArray(data) ? data.join("\n") : data.text };
 
-      await supabase.from("job_postings").update(updates).eq("id", job.id);
-      setJob({ ...job, ...updates });
-      
+      await supabase.from("job_postings").update(updates).eq("id", target.id);
+      setJob(prev => prev ? { ...prev, ...updates } : prev);
+
     } catch (e: any) {
-      alert("Generation failed: " + e.message);
+      setGenError(e.message || "Generation failed");
     } finally {
       setGenLoading(null);
     }
@@ -243,13 +243,27 @@ export default function JobDetailPage() {
 
             {/* Tab Content */}
             <div className="p-6 flex-1 overflow-y-auto">
-              
-              {/* Summary Tab */}
+
+              {/* Inline error */}
+              {genError && (
+                <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-400 flex items-center justify-between">
+                  <span>{genError}</span>
+                  <button onClick={() => setGenError(null)} className="ml-3 text-red-400 hover:text-red-600">✕</button>
+                </div>
+              )}
+
+              {/* Requirements Tab */}
               {activeTab === "summary" && (
-                <div className="space-y-6">
+                <div>
                   {job.description_summary ? (
                     <div>
-                      <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3">Extracted Requirements</h4>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Key Requirements</h4>
+                        <button onClick={() => generateContent("generate_summary")} disabled={genLoading === "generate_summary"}
+                          className="text-xs text-zinc-400 hover:text-violet-600 transition-colors disabled:opacity-50">
+                          {genLoading === "generate_summary" ? "Regenerating..." : "↺ Regenerate"}
+                        </button>
+                      </div>
                       <ul className="space-y-2">
                         {job.description_summary.split("\n").filter(Boolean).map((b, i) => (
                           <li key={i} className="flex gap-2 text-sm text-zinc-700 dark:text-zinc-300">
@@ -260,20 +274,11 @@ export default function JobDetailPage() {
                       </ul>
                     </div>
                   ) : (
-                    <EmptyGenerationState 
-                      loading={genLoading === "generate_summary"} 
-                      onClick={() => generateContent("generate_summary")} 
-                      label="Extract Requirements" 
+                    <EmptyGenerationState
+                      loading={genLoading === "generate_summary"}
+                      onClick={() => generateContent("generate_summary")}
+                      label="Extract Requirements"
                     />
-                  )}
-                  
-                  {job.description_raw && (
-                    <div className="mt-8 pt-6 border-t border-zinc-100 dark:border-zinc-800">
-                      <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3">Raw Description</h4>
-                      <div className="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl text-xs text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap font-mono leading-relaxed h-[300px] overflow-y-auto border border-zinc-200 dark:border-zinc-700">
-                        {job.description_raw}
-                      </div>
-                    </div>
                   )}
                 </div>
               )}
@@ -281,7 +286,7 @@ export default function JobDetailPage() {
               {/* Cover Letter Tab */}
               {activeTab === "cover_letter" && (
                 job.cover_letter ? (
-                  <ContentDisplay content={job.cover_letter} />
+                  <ContentDisplay content={job.cover_letter} onRegenerate={() => generateContent("generate_cover_letter")} regenerating={genLoading === "generate_cover_letter"} />
                 ) : (
                   <EmptyGenerationState loading={genLoading === "generate_cover_letter"} onClick={() => generateContent("generate_cover_letter")} label="Draft Cover Letter" />
                 )
@@ -290,7 +295,7 @@ export default function JobDetailPage() {
               {/* Email Tab */}
               {activeTab === "email" && (
                 job.email_draft ? (
-                  <ContentDisplay content={job.email_draft} />
+                  <ContentDisplay content={job.email_draft} onRegenerate={() => generateContent("generate_email")} regenerating={genLoading === "generate_email"} />
                 ) : (
                   <EmptyGenerationState loading={genLoading === "generate_email"} onClick={() => generateContent("generate_email")} label="Draft Cold Email" />
                 )
@@ -299,20 +304,20 @@ export default function JobDetailPage() {
               {/* LinkedIn Tab */}
               {activeTab === "linkedin" && (
                 job.linkedin_note ? (
-                  <ContentDisplay content={job.linkedin_note} />
+                  <ContentDisplay content={job.linkedin_note} onRegenerate={() => generateContent("generate_linkedin")} regenerating={genLoading === "generate_linkedin"} />
                 ) : (
-                  <EmptyGenerationState loading={genLoading === "generate_linkedin"} onClick={() => generateContent("generate_linkedin")} label="Draft LinkedIn Connection Request" />
+                  <EmptyGenerationState loading={genLoading === "generate_linkedin"} onClick={() => generateContent("generate_linkedin")} label="Draft LinkedIn Note" />
                 )
               )}
 
-              {/* Chat Tab (Placeholder for now) */}
+              {/* Chat Tab (Placeholder) */}
               {activeTab === "chat" && (
                 <div className="flex flex-col h-full items-center justify-center text-center space-y-4 text-zinc-500">
-                   <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-500 mb-2">
-                     <Sparkles className="w-8 h-8" />
-                   </div>
-                   <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Interactive Chat</h3>
-                   <p className="text-sm max-w-sm">Chat with Gemini about this specific job description. Coming in the next iteration!</p>
+                  <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-500 mb-2">
+                    <Sparkles className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Interactive Chat</h3>
+                  <p className="text-sm max-w-sm">Chat with Gemini about this specific job. Coming soon!</p>
                 </div>
               )}
 
@@ -341,11 +346,15 @@ function EmptyGenerationState({ loading, onClick, label }: { loading: boolean, o
   );
 }
 
-function ContentDisplay({ content }: { content: string }) {
+function ContentDisplay({ content, onRegenerate, regenerating }: { content: string; onRegenerate: () => void; regenerating: boolean }) {
   return (
     <div className="h-full flex flex-col">
-      <div className="flex justify-end mb-3">
-        <CopyButton text={content} label="Copy to Clipboard" />
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={onRegenerate} disabled={regenerating}
+          className="text-xs text-zinc-400 hover:text-violet-600 transition-colors disabled:opacity-50">
+          {regenerating ? "Regenerating..." : "↺ Regenerate"}
+        </button>
+        <CopyButton text={content} label="Copy" />
       </div>
       <div className="flex-1 bg-zinc-50 dark:bg-zinc-800/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap font-serif">
         {content}
