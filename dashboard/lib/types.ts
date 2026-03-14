@@ -86,6 +86,8 @@ export interface JobPosting {
   outreach_last_action_at: string | null;
   follow_up_generated: boolean;
   notes: string | null;
+  track: "A" | "B" | "C" | null;
+  visa_sponsorship: boolean;
   created_at: string;
   // Joined
   companies?: Company;

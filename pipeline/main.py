@@ -32,10 +32,13 @@ from pipeline.config import (
     CLEANUP_DAYS,
 )
 
+from pipeline.filters.visa_check import check_visa_sponsorship
+
 from pipeline.fetchers import (
     cryptorank_scraper,
     web3career, cryptojobslist_rss, cryptocurrencyjobs_rss,
     dragonfly_jobs, arbitrum_jobs, hashtagweb3, talentweb3,
+    remotive, himalayas, weworkremotely_rss, yc_startups,
 )
 
 
@@ -49,6 +52,9 @@ class Stats:
         self.track_b_new             = 0
         self.track_b_skipped_dedup   = 0
         self.track_b_skipped_filter  = 0
+        self.track_c_new             = 0
+        self.track_c_skipped_dedup   = 0
+        self.track_c_skipped_filter  = 0
         self.errors: list[dict]      = []
 
     def add_error(self, source: str, message: str):
@@ -67,6 +73,9 @@ class Stats:
             "track_b_new":            self.track_b_new,
             "track_b_skipped_dedup":  self.track_b_skipped_dedup,
             "track_b_skipped_filter": self.track_b_skipped_filter,
+            "track_c_new":            self.track_c_new,
+            "track_c_skipped_dedup":  self.track_c_skipped_dedup,
+            "track_c_skipped_filter": self.track_c_skipped_filter,
             "errors":                 self.errors,
         }
 
@@ -464,6 +473,232 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
     print(f"[Track B] Saved: {job['job_title']} at {name}")
 
 
+# ── Track C processing ────────────────────────────────────────────────────────
+
+def process_general_job(job: dict, existing_companies: list[dict], stats: Stats):
+    """Process one Track C (general design) job posting.
+
+    Differences from process_job_posting():
+    - No crypto keyword check (caller handles role keyword filter)
+    - Rejects us_only remote scope (hard skip, not just a flag)
+    - Runs visa sponsorship check → stored as visa_sponsorship flag
+    - Saves with track='C'
+    """
+
+    # Normalize URL before dedup
+    job["job_url"] = normalize_job_url(job["job_url"])
+
+    # URL dedup
+    if job["job_url"] and db.get_job_by_url(job["job_url"]):
+        stats.track_c_skipped_dedup += 1
+        return
+
+    # Experience classification
+    exp_match, years_min, years_max = classify_experience(
+        job.get("description_raw", "") + " " + job.get("job_title", "")
+    )
+    if exp_match == "skip":
+        stats.track_c_skipped_filter += 1
+        return
+    needs_exp_groq = exp_match == "ambiguous"
+
+    # Remote scope — strict: reject us_only entirely
+    remote_scope = detect_remote_scope(
+        job.get("description_raw", ""),
+        job.get("location", ""),
+    )
+    if remote_scope == "us_only":
+        stats.track_c_skipped_filter += 1
+        return
+    needs_remote_groq = remote_scope == "unclear"
+
+    # Visa sponsorship flag
+    visa_sponsorship = check_visa_sponsorship(job.get("description_raw", ""))
+
+    # Company dedup
+    name   = job.get("company_name", "")
+    url    = job.get("company_website", "")
+    domain = normalize_domain(url)
+
+    existing_id = find_company_match(name, domain, existing_companies)
+    if existing_id:
+        company_id = existing_id
+        if db.get_job_by_company_title(company_id, job["job_title"]):
+            stats.track_c_skipped_dedup += 1
+            return
+    else:
+        company_id = db.upsert_company({
+            "name":    name,
+            "domain":  domain or None,
+            "website": url or None,
+        })
+        existing_companies.append({"id": company_id, "name": name, "domain": domain})
+
+    # Domain discovery
+    if not domain and name:
+        try:
+            discovered = find_company_domain(name)
+            if discovered:
+                domain = discovered
+                db.update_company(company_id, {"domain": domain, "website": f"https://{domain}"})
+                print(f"[Domain] Discovered for {name}: {domain}")
+        except Exception:
+            pass
+
+    # Hunter company enrichment (free — LinkedIn from domain)
+    if domain:
+        try:
+            company_row_current = db.get_company(company_id)
+            if not (company_row_current or {}).get("linkedin_url"):
+                enriched = hunter_enrich_company(domain, name)
+                update = {}
+                if enriched.get("linkedin"):
+                    update["linkedin_url"] = enriched["linkedin"]
+                if update:
+                    db.update_company(company_id, update)
+                    print(f"[Hunter] Company enriched for {name}: {update}")
+        except Exception:
+            pass
+
+    # Apollo → Hunter: find contact
+    contact_id    = None
+    contact_name  = ""
+    contact_title = ""
+    try:
+        contact_data = None
+        try:
+            contact_data = apollo.find_contact(name, domain, None)
+        except Exception as apollo_err:
+            print(f"[Apollo] Error finding contact, trying Hunter: {apollo_err}")
+            contact_data = None
+        if not contact_data:
+            contact_data = hunter.find_contact(name, domain, None)
+            if contact_data:
+                print(f"[Hunter] Found contact via fallback: {contact_data.get('name')}")
+
+        if contact_data:
+            org_update = {}
+            if contact_data.get("org_website"):
+                org_update["website"] = contact_data["org_website"]
+            if contact_data.get("org_linkedin"):
+                org_update["linkedin_url"] = contact_data["org_linkedin"]
+            if org_update:
+                db.update_company(company_id, org_update)
+
+            apollo_id = contact_data.get("apollo_person_id")
+            existing_contact = db.get_contact_by_apollo_id(apollo_id) if apollo_id else None
+            if existing_contact:
+                contact_id = existing_contact["id"]
+            else:
+                skip = {k for k in contact_data if k.startswith("org_") or k.startswith("_hunter_")}
+                contact_insert = {k: v for k, v in contact_data.items() if k not in skip}
+                hunter_email = contact_data.get("_hunter_email")
+                if hunter_email:
+                    contact_insert["email"] = hunter_email
+                    contact_insert["email_revealed"] = True
+                if contact_insert.get("twitter_url"):
+                    contact_insert["twitter_confidence"] = "high"
+                    print(f"[Twitter] From Hunter: {contact_insert['twitter_url']}")
+                else:
+                    try:
+                        twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
+                        if twitter_url:
+                            contact_insert["twitter_url"] = twitter_url
+                            contact_insert["twitter_confidence"] = twitter_confidence
+                            print(f"[Twitter] Found ({twitter_confidence}): {twitter_url}")
+                    except Exception:
+                        pass
+                contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
+            contact_name  = contact_data.get("name", "")
+            contact_title = contact_data.get("title", "")
+    except Exception as e:
+        stats.add_error("apollo_track_c", str(e))
+
+    # Company LinkedIn enrichment — Apollo (free) → Exa/Tavily fallback
+    try:
+        company_row_current = db.get_company(company_id)
+        needs_linkedin = not (company_row_current or {}).get("linkedin_url")
+        if needs_linkedin and domain:
+            apollo_org = apollo.enrich_company(domain)
+            org_update = {}
+            if apollo_org.get("linkedin_url"):
+                org_update["linkedin_url"] = apollo_org["linkedin_url"]
+                print(f"[Apollo] Company LinkedIn: {apollo_org['linkedin_url']}")
+            if apollo_org.get("employee_count") and not (company_row_current or {}).get("employee_count"):
+                org_update["employee_count"] = apollo_org["employee_count"]
+            if org_update:
+                db.update_company(company_id, org_update)
+            elif needs_linkedin:
+                linkedin = find_company_linkedin(name, domain)
+                if linkedin:
+                    db.update_company(company_id, {"linkedin_url": linkedin})
+                    print(f"[Exa] Company LinkedIn: {linkedin}")
+    except Exception:
+        pass
+
+    # Gemini: generate summary and classifications
+    description_summary = None
+    groq_exp_match    = exp_match if not needs_exp_groq else "strong"
+    groq_remote_scope = remote_scope if not needs_remote_groq else "unclear"
+
+    if GEMINI_ENABLED:
+        try:
+            result = gen.generate_job_content(
+                job_title      = job["job_title"],
+                company_name   = name,
+                description    = job.get("description_raw", ""),
+                needs_experience_classification = needs_exp_groq,
+                needs_remote_classification     = needs_remote_groq,
+                contact_name   = contact_name,
+                contact_title  = contact_title,
+            )
+            description_summary = json.dumps({
+                "location":     result.get("location"),
+                "salary":       result.get("salary"),
+                "requirements": result.get("requirements_bullets", []),
+            })
+            if needs_exp_groq and result.get("experience_match"):
+                groq_exp_match = result["experience_match"]
+                if groq_exp_match == "skip":
+                    stats.track_c_skipped_filter += 1
+                    return
+            if needs_remote_groq and result.get("remote_scope"):
+                groq_remote_scope = result["remote_scope"]
+                if groq_remote_scope == "us_only":
+                    stats.track_c_skipped_filter += 1
+                    return
+        except Exception as e:
+            stats.add_error("gemini_track_c", str(e))
+
+    # Save job posting with track='C'
+    db.insert_job_posting({
+        "company_id":          company_id,
+        "contact_id":          contact_id,
+        "source":              job["source"],
+        "job_title":           job["job_title"],
+        "job_url":             job["job_url"],
+        "description_raw":     job.get("description_raw"),
+        "description_summary": description_summary,
+        "salary_min":          job.get("salary_min"),
+        "salary_max":          job.get("salary_max"),
+        "salary_currency":     job.get("salary_currency", "USD"),
+        "posted_at":           job.get("posted_at"),
+        "location":            job.get("location"),
+        "remote_scope":        groq_remote_scope,
+        "experience_match":    groq_exp_match if groq_exp_match != "ambiguous" else "strong",
+        "years_min":           years_min,
+        "years_max":           years_max,
+        "cover_letter":        None,
+        "linkedin_note":       None,
+        "email_draft":         None,
+        "raw_data":            job.get("raw_data"),
+        "track":               "C",
+        "visa_sponsorship":    visa_sponsorship,
+    })
+    stats.track_c_new += 1
+    print(f"[Track C] Saved: {job['job_title']} at {name}{' [visa]' if visa_sponsorship else ''}")
+
+
 # ── Follow-up generation ──────────────────────────────────────────────────────
 
 def generate_followups(stats: Stats):
@@ -584,6 +819,36 @@ def main():
         except Exception as e:
             stats.add_error("track_b_process", str(e))
 
+    # ── Track C ───────────────────────────────────────────────────────────────
+    print("[Track C] Starting general design roles pipeline...")
+    raw_general = []
+
+    track_c_fetchers = [
+        ("remotive",       remotive.fetch),
+        ("himalayas",      himalayas.fetch),
+        ("weworkremotely", weworkremotely_rss.fetch),
+        ("yc_startups",    yc_startups.fetch),
+    ]
+
+    for name, fetcher_fn in track_c_fetchers:
+        try:
+            items = fetcher_fn()
+            print(f"[{name}] Fetched {len(items)} items")
+            raw_general.extend(items)
+        except Exception as e:
+            stats.add_error(name, str(e))
+
+    # Role keyword filter (same DESIGN_ROLE_KEYWORDS as Track B)
+    design_general = [j for j in raw_general if is_design_role(j)]
+    skipped_role_c = len(raw_general) - len(design_general)
+    print(f"[Track C] Role filter: {len(design_general)} design roles from {len(raw_general)} total ({skipped_role_c} skipped)")
+
+    for job in design_general:
+        try:
+            process_general_job(job, existing_companies, stats)
+        except Exception as e:
+            stats.add_error("track_c_process", str(e))
+
     # ── Follow-ups ────────────────────────────────────────────────────────────
     generate_followups(stats)
 
@@ -609,6 +874,7 @@ def main():
 [Pipeline] Complete.
   Track A: {stats.track_a_new} new, {stats.track_a_skipped_dedup} deduped, {stats.track_a_skipped_filter} filtered
   Track B: {stats.track_b_new} new, {stats.track_b_skipped_dedup} deduped, {stats.track_b_skipped_filter} filtered
+  Track C: {stats.track_c_new} new, {stats.track_c_skipped_dedup} deduped, {stats.track_c_skipped_filter} filtered
   Errors:  {len(stats.errors)}
 """)
 

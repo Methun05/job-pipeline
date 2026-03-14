@@ -189,7 +189,7 @@ def insert_job_posting(data: dict) -> str:
         "experience_match", "years_min", "years_max", "cover_letter",
         "linkedin_note", "email_draft", "follow_up_message",
         "application_status", "outreach_status", "follow_up_generated",
-        "notes", "raw_data",
+        "notes", "raw_data", "track", "visa_sponsorship",
     }
     res = get_client().table("job_postings").insert({k: v for k, v in data.items() if k in allowed}).execute()
     return res.data[0]["id"]
