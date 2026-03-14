@@ -189,28 +189,18 @@ def generate_job_content(
 Specialization: {p['specialization']}
 Skills: {p['skills']}
 Background: {p['background']}
-Portfolio: {p['portfolio']}
-Tone: {p['tone']}
 
 Job: {job_title} at {company_name}
-{contact_context}
 
 Job description:
 {description[:2500]}
 
 Tasks:{extra_tasks}
 - Extract 3 key requirements as bullet points
-- Write a cover letter (3-4 paragraphs, specific to this role, not generic)
-- Write a LinkedIn connection note referencing the job application (under 300 chars)
-- Write a follow-up email
 
 Return a JSON object with these exact keys:
 {{{extra_fields}
-  "requirements_bullets": ["requirement 1", "requirement 2", "requirement 3"],
-  "cover_letter": "Full cover letter. Opens by referencing company/product specifically. Paragraph 2: relevant experience. Paragraph 3: why this role. Closing paragraph.",
-  "linkedin_note": "Under 300 chars. Reference: (1) you applied to their job, (2) your specific background. Natural tone. Not desperate.",
-  "email_subject": "Short subject line referencing the role",
-  "email_body": "3-4 sentences. Reference application. Mention specific design experience. Soft ask."
+  "requirements_bullets": ["requirement 1", "requirement 2", "requirement 3"]
 }}
 
 Return only the JSON object, no other text."""

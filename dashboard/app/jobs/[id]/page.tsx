@@ -1,0 +1,355 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { ArrowLeft, ExternalLink, Globe, Linkedin, Mail, Twitter, Sparkles } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import type { JobPosting, AppStatus, OutreachStatus } from "@/lib/types";
+import { Button, Textarea } from "@/components/ui";
+import CopyButton from "@/components/CopyButton";
+
+const APP_OPTIONS: { value: AppStatus; label: string; color: string }[] = [
+  { value: "new",       label: "Not Applied", color: "text-zinc-500" },
+  { value: "applied",   label: "Applied",     color: "text-blue-600" },
+  { value: "follow_up", label: "Follow Up",   color: "text-amber-600" },
+  { value: "interview", label: "Interview",   color: "text-violet-600" },
+  { value: "offer",     label: "Offer",       color: "text-emerald-600" },
+  { value: "rejected",  label: "Rejected",    color: "text-red-500" },
+  { value: "skipped",   label: "Skipped",     color: "text-zinc-400" },
+];
+
+const OUTREACH_OPTIONS: { value: OutreachStatus; label: string; color: string }[] = [
+  { value: "new",             label: "Not Sent",   color: "text-zinc-500" },
+  { value: "connection_sent", label: "Sent",       color: "text-violet-600" },
+  { value: "connected",       label: "Connected",  color: "text-blue-600" },
+  { value: "replied",         label: "Replied",    color: "text-emerald-600" },
+  { value: "conversation",    label: "Talking",    color: "text-emerald-700" },
+  { value: "cant_find",       label: "Can't Find", color: "text-red-500" },
+];
+
+function getColor(options: { value: string; color: string }[], val: string) {
+  return options.find(o => o.value === val)?.color ?? "text-zinc-500";
+}
+
+const selectClass = "border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-800 text-sm font-medium cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-500 px-3 py-1.5 shadow-sm";
+
+export default function JobDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = params.id as string;
+
+  const [job, setJob] = useState<JobPosting | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"summary" | "cover_letter" | "email" | "linkedin" | "chat">("summary");
+  
+  // State for AI generation
+  const [genLoading, setGenLoading] = useState<string | null>(null);
+  
+  // Notes
+  const [notes, setNotes] = useState("");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+
+  useEffect(() => {
+    async function fetchJob() {
+      const { data } = await supabase
+        .from("job_postings")
+        .select("*, companies(*), contacts(*)")
+        .eq("id", id)
+        .single();
+        
+      if (data) {
+        setJob(data as JobPosting);
+        setNotes(data.notes || "");
+      }
+      setLoading(false);
+    }
+    if (id) fetchJob();
+  }, [id]);
+
+  async function updateApp(status: AppStatus) {
+    if (!job) return;
+    await supabase.from("job_postings").update({ application_status: status, application_last_action_at: new Date().toISOString() }).eq("id", job.id);
+    setJob({ ...job, application_status: status });
+  }
+
+  async function updateOutreach(status: OutreachStatus) {
+    if (!job) return;
+    await supabase.from("job_postings").update({ outreach_status: status, outreach_last_action_at: new Date().toISOString() }).eq("id", job.id);
+    setJob({ ...job, outreach_status: status });
+  }
+
+  async function saveNotes() {
+    if (!job) return;
+    setSaveState("saving");
+    await supabase.from("job_postings").update({ notes }).eq("id", job.id);
+    setSaveState("saved");
+    setTimeout(() => setSaveState("idle"), 2000);
+  }
+
+  async function generateContent(action: "generate_cover_letter" | "generate_email" | "generate_linkedin" | "generate_summary") {
+    if (!job) return;
+    setGenLoading(action);
+    
+    try {
+      const res = await fetch("/api/generate-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          jobTitle: job.job_title,
+          companyName: job.companies?.name || "the company",
+          description: job.description_raw,
+          contactName: job.contacts?.name,
+          contactTitle: job.contacts?.title,
+          requirements: job.description_summary
+        })
+      });
+      
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      let updates: Partial<JobPosting> = {};
+      
+      if (action === "generate_cover_letter") {
+        updates = { cover_letter: data.text };
+      } else if (action === "generate_linkedin") {
+        updates = { linkedin_note: data.text };
+      } else if (action === "generate_email") {
+        const fullEmail = `Subject: ${data.subject}\n\n${data.body}`;
+        updates = { email_draft: fullEmail };
+      } else if (action === "generate_summary") {
+        updates = { description_summary: data.join("\n") };
+      }
+
+      await supabase.from("job_postings").update(updates).eq("id", job.id);
+      setJob({ ...job, ...updates });
+      
+    } catch (e: any) {
+      alert("Generation failed: " + e.message);
+    } finally {
+      setGenLoading(null);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F5F5F4] dark:bg-[#0f0f10] flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!job) {
+    return <div className="p-8 text-center text-zinc-500">Job not found</div>;
+  }
+
+  const company = job.companies;
+  const contact = job.contacts;
+  const websiteUrl = company?.website ? (company.website.startsWith("http") ? company.website : "https://" + company.website) : company?.domain ? "https://" + company.domain : null;
+
+  return (
+    <div className="min-h-screen bg-[#F5F5F4] dark:bg-[#0f0f10] p-4 md:p-8">
+      {/* ── Header ── */}
+      <button onClick={() => router.back()} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors mb-6 group">
+        <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" /> Back to Jobs
+      </button>
+
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 mb-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{job.job_title}</h1>
+          <div className="flex items-center gap-3 mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <span className="font-medium text-zinc-900 dark:text-zinc-200">{company?.name || "Unknown Company"}</span>
+            {job.location && <span>&bull; {job.location}</span>}
+            <span>&bull; {format(new Date(job.posted_at || job.created_at), "MMM d, yyyy")}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <select value={job.application_status} onChange={e => updateApp(e.target.value as AppStatus)} className={`${selectClass} ${getColor(APP_OPTIONS, job.application_status)}`}>
+            {APP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <select value={job.outreach_status} onChange={e => updateOutreach(e.target.value as OutreachStatus)} className={`${selectClass} ${getColor(OUTREACH_OPTIONS, job.outreach_status)}`}>
+            {OUTREACH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <a href={job.job_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-md font-medium text-sm hover:opacity-90 transition-opacity whitespace-nowrap">
+            <ExternalLink className="w-4 h-4" /> View Job
+          </a>
+        </div>
+      </div>
+
+      {/* ── Two Column Layout ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Left Column: Context */}
+        <div className="lg:col-span-4 space-y-6">
+          
+          {/* Contact Card */}
+          {contact && (
+            <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+              <h3 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4">Contact Person</h3>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 font-semibold">
+                  {contact.name.charAt(0)}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{contact.name}</p>
+                  <p className="text-xs text-zinc-500">{contact.title}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {contact.linkedin_url && <a href={contact.linkedin_url} target="_blank" rel="noreferrer" className="p-2 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"><Linkedin className="w-4 h-4" /></a>}
+                {websiteUrl && <a href={websiteUrl} target="_blank" rel="noreferrer" className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"><Globe className="w-4 h-4" /></a>}
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+             <h3 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Your Notes</h3>
+             <Textarea value={notes} onChange={setNotes} placeholder="Add research notes here..." className="mb-3 min-h-[120px]" />
+             <Button variant="ghost" size="sm" onClick={saveNotes} disabled={saveState !== "idle"} className="w-full justify-center">
+              {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved ✓" : "Save Notes"}
+            </Button>
+          </div>
+
+        </div>
+
+        {/* Right Column: AI Workspace */}
+        <div className="lg:col-span-8">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden h-full flex flex-col min-h-[600px]">
+            
+            {/* Tabs */}
+            <div className="flex border-b border-zinc-200 dark:border-zinc-800 overflow-x-auto hide-scrollbar bg-zinc-50/50 dark:bg-zinc-900/50">
+              {[
+                { id: "summary", label: "Requirements" },
+                { id: "cover_letter", label: "Cover Letter" },
+                { id: "email", label: "Email Draft" },
+                { id: "linkedin", label: "LinkedIn Note" },
+                { id: "chat", label: "💬 Chat" },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    activeTab === tab.id 
+                    ? "border-violet-500 text-violet-600 dark:text-violet-400 bg-white dark:bg-zinc-800/50 shadow-sm" 
+                    : "border-transparent text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/20"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="p-6 flex-1 overflow-y-auto">
+              
+              {/* Summary Tab */}
+              {activeTab === "summary" && (
+                <div className="space-y-6">
+                  {job.description_summary ? (
+                    <div>
+                      <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3">Extracted Requirements</h4>
+                      <ul className="space-y-2">
+                        {job.description_summary.split("\n").filter(Boolean).map((b, i) => (
+                          <li key={i} className="flex gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                            <span className="text-violet-500 mt-0.5 shrink-0">›</span>
+                            {b.replace(/^[-•]\s*/, "")}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <EmptyGenerationState 
+                      loading={genLoading === "generate_summary"} 
+                      onClick={() => generateContent("generate_summary")} 
+                      label="Extract Requirements" 
+                    />
+                  )}
+                  
+                  {job.description_raw && (
+                    <div className="mt-8 pt-6 border-t border-zinc-100 dark:border-zinc-800">
+                      <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3">Raw Description</h4>
+                      <div className="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl text-xs text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap font-mono leading-relaxed h-[300px] overflow-y-auto border border-zinc-200 dark:border-zinc-700">
+                        {job.description_raw}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Cover Letter Tab */}
+              {activeTab === "cover_letter" && (
+                job.cover_letter ? (
+                  <ContentDisplay content={job.cover_letter} />
+                ) : (
+                  <EmptyGenerationState loading={genLoading === "generate_cover_letter"} onClick={() => generateContent("generate_cover_letter")} label="Draft Cover Letter" />
+                )
+              )}
+
+              {/* Email Tab */}
+              {activeTab === "email" && (
+                job.email_draft ? (
+                  <ContentDisplay content={job.email_draft} />
+                ) : (
+                  <EmptyGenerationState loading={genLoading === "generate_email"} onClick={() => generateContent("generate_email")} label="Draft Cold Email" />
+                )
+              )}
+
+              {/* LinkedIn Tab */}
+              {activeTab === "linkedin" && (
+                job.linkedin_note ? (
+                  <ContentDisplay content={job.linkedin_note} />
+                ) : (
+                  <EmptyGenerationState loading={genLoading === "generate_linkedin"} onClick={() => generateContent("generate_linkedin")} label="Draft LinkedIn Connection Request" />
+                )
+              )}
+
+              {/* Chat Tab (Placeholder for now) */}
+              {activeTab === "chat" && (
+                <div className="flex flex-col h-full items-center justify-center text-center space-y-4 text-zinc-500">
+                   <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-500 mb-2">
+                     <Sparkles className="w-8 h-8" />
+                   </div>
+                   <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Interactive Chat</h3>
+                   <p className="text-sm max-w-sm">Chat with Gemini about this specific job description. Coming in the next iteration!</p>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+function EmptyGenerationState({ loading, onClick, label }: { loading: boolean, onClick: () => void, label: string }) {
+  return (
+    <div className="flex flex-col h-full min-h-[400px] items-center justify-center text-center space-y-4">
+      <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-500 mb-2">
+        <Sparkles className="w-8 h-8" />
+      </div>
+      <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">No content generated yet</h3>
+      <p className="text-sm text-zinc-500 mb-4 max-w-sm">Use AI to instantly draft an personalized artifact based on your career profile and the raw job description.</p>
+      <Button onClick={onClick} disabled={loading} className="gap-2 bg-violet-600 hover:bg-violet-700 text-white min-w-[200px] justify-center">
+        {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Sparkles className="w-4 h-4" />}
+        {loading ? "Generating..." : `✨ ${label}`}
+      </Button>
+    </div>
+  );
+}
+
+function ContentDisplay({ content }: { content: string }) {
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex justify-end mb-3">
+        <CopyButton text={content} label="Copy to Clipboard" />
+      </div>
+      <div className="flex-1 bg-zinc-50 dark:bg-zinc-800/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap font-serif">
+        {content}
+      </div>
+    </div>
+  );
+}

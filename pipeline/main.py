@@ -280,11 +280,11 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
     except Exception as e:
         stats.add_error("apollo_track_b", str(e))
 
-    # Gemini: generate all content in one call (skipped if disabled)
+    # Gemini: generate summary and classifications in one call (skipped if disabled)
     description_summary = None
-    cover_letter        = None
-    linkedin_note       = None
-    email_draft         = None
+    cover_letter        = None # No longer generated in pipeline
+    linkedin_note       = None # No longer generated in pipeline
+    email_draft         = None # No longer generated in pipeline
     groq_exp_match      = exp_match if not needs_exp_groq else "strong"  # fallback
     groq_remote_scope   = remote_scope if not needs_remote_groq else "unclear"
 
@@ -300,12 +300,7 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
                 contact_title  = contact_title,
             )
             description_summary = "\n".join(result.get("requirements_bullets", []))
-            cover_letter        = result.get("cover_letter")
-            linkedin_note       = result.get("linkedin_note")
-            email_draft = (
-                f"Subject: {result.get('email_subject', '')}\n\n"
-                f"{result.get('email_body', '')}"
-            )
+            
             if needs_exp_groq and result.get("experience_match"):
                 groq_exp_match = result["experience_match"]
                 if groq_exp_match == "skip":
