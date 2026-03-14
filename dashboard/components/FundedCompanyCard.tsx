@@ -93,13 +93,20 @@ function useRowState(lead: FundedLead, onStatusChange: (id: string, status: Fund
 
   async function handleRevealEmail() {
     const contact = lead.contacts;
-    if (!contact?.apollo_person_id) return;
+    if (!contact) return;
     setEmailLoading(true);
     setEmailError(null);
+    const company = lead.companies;
+    const domain  = company?.domain || company?.website || null;
     try {
       const res  = await fetch("/api/reveal-email", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apollo_person_id: contact.apollo_person_id, contact_id: contact.id }),
+        body: JSON.stringify({
+          apollo_person_id: contact.apollo_person_id,
+          contact_id:       contact.id,
+          contact_name:     contact.name,
+          contact_domain:   domain,
+        }),
       });
       const data = await res.json();
       if (data.email) setEmailResult(data.email);

@@ -150,6 +150,7 @@ export default function JobDetailPage() {
           contact_id:       c.id,
           contact_name:     c.name,
           contact_domain:   domain,
+          company_name:     job.companies?.name,
         }),
       });
       const data = await res.json();

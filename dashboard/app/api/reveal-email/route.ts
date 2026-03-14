@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { apollo_person_id, contact_id, contact_name, contact_domain } = await req.json();
+  const { apollo_person_id, contact_id, contact_name, contact_domain, company_name } = await req.json();
   if (!contact_id) {
     return NextResponse.json({ error: "Missing contact_id" }, { status: 400 });
   }
@@ -34,9 +34,12 @@ export async function POST(req: NextRequest) {
       .select("key, value")
       .eq("key", "apollo_credits_remaining");
 
-    const credits = parseInt(settings?.[0]?.value || "0");
+    const rawCredits = settings?.[0]?.value;
+    const credits    = rawCredits ? parseInt(rawCredits) : NaN;
+    // If credits unreadable, assume available (don't silently skip Apollo)
+    const apolloAvailable = isNaN(credits) || credits > 0;
 
-    if (credits > 0) {
+    if (apolloAvailable) {
       try {
         const apolloRes = await fetch("https://api.apollo.io/v1/people/match", {
           method:  "POST",
@@ -65,19 +68,33 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Step 2: Hunter.io fallback ──────────────────────────────────────────────
-  if (!email && contact_name && contact_domain && process.env.HUNTER_API_KEY) {
+  if (!email && contact_name && process.env.HUNTER_API_KEY) {
     try {
-      const nameParts  = contact_name.trim().split(" ");
-      const first_name = nameParts[0] || "";
-      const last_name  = nameParts.slice(1).join(" ") || "";
-      const domain     = contact_domain.replace(/^https?:\/\//, "").replace(/\/$/, "");
+      // Resolve domain: use provided domain, or ask Hunter to find it by company name
+      let resolvedDomain = contact_domain
+        ? contact_domain.replace(/^https?:\/\//, "").replace(/\/$/, "")
+        : null;
 
-      const hunterRes = await fetch(
-        `https://api.hunter.io/v2/email-finder?domain=${encodeURIComponent(domain)}&first_name=${encodeURIComponent(first_name)}&last_name=${encodeURIComponent(last_name)}&api_key=${process.env.HUNTER_API_KEY}`
-      );
-      const hunterData = await hunterRes.json();
-      email = hunterData?.data?.email ?? null;
-      if (email) source = "hunter";
+      if (!resolvedDomain && company_name) {
+        const companyRes  = await fetch(
+          `https://api.hunter.io/v2/companies/find?company=${encodeURIComponent(company_name)}&api_key=${process.env.HUNTER_API_KEY}`
+        );
+        const companyData = await companyRes.json();
+        resolvedDomain    = companyData?.data?.domain ?? null;
+      }
+
+      if (resolvedDomain) {
+        const nameParts  = contact_name.trim().split(" ");
+        const first_name = nameParts[0] || "";
+        const last_name  = nameParts.slice(1).join(" ") || "";
+
+        const hunterRes  = await fetch(
+          `https://api.hunter.io/v2/email-finder?domain=${encodeURIComponent(resolvedDomain)}&first_name=${encodeURIComponent(first_name)}&last_name=${encodeURIComponent(last_name)}&api_key=${process.env.HUNTER_API_KEY}`
+        );
+        const hunterData = await hunterRes.json();
+        email = hunterData?.data?.email ?? null;
+        if (email) source = "hunter";
+      }
     } catch {
       // Hunter failed — fall through to not-found
     }
