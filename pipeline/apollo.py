@@ -18,7 +18,8 @@ import requests
 from pipeline.config import APOLLO_API_KEY, HTTP_TIMEOUT, APOLLO_CREDIT_ALERT
 import pipeline.db as db
 
-BASE_URL = "https://api.apollo.io/v1"
+BASE_URL     = "https://api.apollo.io/v1"
+BASE_URL_NEW = "https://api.apollo.io/api/v1"
 
 _HEADERS = None
 
@@ -96,7 +97,7 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
 
     try:
         resp = requests.post(
-            f"{BASE_URL}/mixed_people/search",
+            f"{BASE_URL_NEW}/mixed_people/api_search",
             json=payload,
             headers=_headers(),
             timeout=HTTP_TIMEOUT,

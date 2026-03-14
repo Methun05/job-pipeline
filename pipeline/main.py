@@ -120,7 +120,11 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
     contact_name  = ""
     contact_title = ""
     try:
-        contact_data = apollo.find_contact(name, domain, None)
+        try:
+            contact_data = apollo.find_contact(name, domain, None)
+        except Exception as apollo_err:
+            print(f"[Apollo] Error finding contact, trying Hunter: {apollo_err}")
+            contact_data = None
         if not contact_data:
             contact_data = hunter.find_contact(name, domain, None)
             if contact_data:
@@ -322,7 +326,11 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
     try:
         contact_data = None
         if not skip_contact:
-            contact_data = apollo.find_contact(name, domain, None)
+            try:
+                contact_data = apollo.find_contact(name, domain, None)
+            except Exception as apollo_err:
+                print(f"[Apollo] Error finding contact, trying Hunter: {apollo_err}")
+                contact_data = None
             if not contact_data:
                 contact_data = hunter.find_contact(name, domain, None)
                 if contact_data:

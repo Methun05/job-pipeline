@@ -4,16 +4,70 @@
 
 ---
 
-## What this project does
+## Why this exists
 
-Automated job search pipeline for a **Product Designer (4 years exp, crypto/web3 UX)** looking for remote roles.
+Job hunting manually is slow. This pipeline automates two specific strategies for a **Product Designer (4 years exp, crypto/web3 UX)** looking for remote roles:
 
-It runs every day at **8 AM IST** and does two things:
+1. **Proactive outreach** — Find companies the moment they get funded (warm money = active hiring). Reach out before they post a job.
+2. **Passive monitoring** — Watch all major crypto job boards daily and surface only the relevant design roles.
 
-- **Track A** — Scrapes recently funded crypto companies → finds a contact person via Apollo → enriches with Twitter + LinkedIn → shows in dashboard
-- **Track B** — Fetches crypto job postings → filters for design roles → enriches company data → shows in dashboard
+It runs every day at **8 AM IST** and results appear at **https://tracker.methun.design**.
 
-Results appear at **https://tracker.methun.design** (live production dashboard).
+---
+
+## Track A — Funded Companies
+
+**Source**: CryptoRank scraper only (free, scrapes Next.js SSR data — no paid API).
+
+**What we filter in:**
+- Funding amount: **$1M – $50M** (too small = no design team yet, too large = already fully staffed)
+- Round types: **Pre-Seed, Seed, Series A, Series B** only (later rounds = harder to get in early)
+- Date window: **last 45 days** — older than that, the moment has passed
+
+**What we extract:**
+- Company name, website, LinkedIn, funding amount + round type, announced date
+- **Contact person** — the right person to reach out to, based on company size:
+  - Small (<20 employees): CEO / Co-Founder / CTO
+  - Mid (20–50 employees): CPO / Chief Product Officer / Head of Product
+  - Large (50+): Head of Design / Design Manager
+- Contact's name, title, LinkedIn URL, Twitter handle (for cold outreach)
+- Email is **not extracted in the pipeline** — costs Apollo credits. Revealed on-demand from dashboard.
+
+**Gemini generates** (per company): a company summary, LinkedIn note, email subject + body.
+
+---
+
+## Track B — Job Postings
+
+**Sources (7 total):**
+- web3.career (scraper — /design-jobs page, no API key)
+- cryptojobslist (RSS)
+- cryptocurrencyjobs (RSS)
+- dragonfly (scraper)
+- arbitrum (scraper)
+- hashtagweb3 (scraper)
+- talentweb3 (recruiter aggregator)
+
+**Filtering — in this order:**
+
+1. **Role keyword match** — title must contain: product designer, UX designer, UI/UX, interaction designer, visual designer, etc. Everything else is dropped immediately.
+
+2. **Experience level** — parsed from job description + title:
+   - `skip` — hard skip: staff/principal/director/VP keywords, or 7+ years required
+   - `stretch` — 5–6 years required (shown but flagged)
+   - `strong` — 0–4 years required (ideal match)
+   - `ambiguous` — no clear signal → Gemini classifies it
+
+3. **Remote scope detection**:
+   - `us_only` — explicit US restriction keywords → flagged
+   - `global` — worldwide/fully remote/anywhere keywords
+   - `unclear` — "remote" with no qualifier → Gemini classifies it
+
+4. **Dedup** — URL exact match first (fastest), then company+title fuzzy match within 30-day window (catches same job relisted with a different URL)
+
+**Gemini extracts** (per job): location, salary, 3 key requirements bullets. Cover letter and email draft are **not** generated in the pipeline (would burn too much Gemini quota) — generated on-demand from dashboard.
+
+**Contact finding** — same Apollo → Hunter chain as Track A. Skip contact search for `talentweb3` (it's a recruiter aggregator, company_name is the platform, not the hiring company).
 
 ---
 
@@ -78,11 +132,11 @@ If Gemini is disabled, AI-generated content (cover letters, email drafts, Linked
 ### 3. `cryptorank_scraper.py` is the ONLY Track A source
 RSS sources were removed because they need Gemini to parse. Do not add new RSS sources to Track A unless Gemini is enabled and tested.
 
-### 4. Apollo free tier limits
-- People search: unlimited
-- **Email reveal: costs 1 credit** — the dashboard has a "Find Email" button that triggers this
+### 4. Apollo API
+- People search (`/api/v1/mixed_people/api_search`): free, no credits. Note: free tier returns no results for many small companies — Hunter fallback handles this.
+- **Email reveal (`/v1/people/match`): costs 1 credit** — only called from the dashboard "Find Email" button, never from the pipeline
 - Never call `apollo.reveal_email()` in bulk or in automated loops
-- Email reveal falls back to Hunter.io if Apollo finds nothing
+- The old endpoint `/v1/mixed_people/search` is deprecated (returns 422) — do not revert to it
 
 ### 5. Dedup logic is critical
 `pipeline/dedup/matcher.py` uses fuzzy matching (RapidFuzz, threshold=85) to avoid inserting the same company twice. Don't change the threshold without testing.
@@ -137,8 +191,11 @@ All enrichment runs for **both Track A and Track B**.
 
 ### Contact finding
 ```
-Apollo.io → Hunter.io domain search (fallback when Apollo finds nothing)
+Apollo /mixed_people/api_search (free, no credits)
+  ↓ returns None OR throws error
+Hunter.io domain-search (free, 25 searches/mo)
 ```
+Hunter fallback triggers on **both** "no result" and Apollo API errors.
 
 ### Twitter handle
 ```
@@ -154,8 +211,15 @@ Exa key1 ──(quota error)──▶ Exa key2
 
 ### Email reveal (on-demand from dashboard only)
 ```
-Apollo /people/match ──▶ Hunter email-finder
+1. Apollo /people/match (costs 1 credit — needs apollo_person_id)
+   ↓ no email or no credits
+2. Hunter email-finder with LinkedIn profile URL
+   ↓ no email
+3. Hunter email-finder with name + domain
+   ↓ no email
+4. Exa — scan company website pages for email matching domain
 ```
+Note: Hunter domain-search (step in contact finding) often returns email directly at no cost — check `_hunter_email` before triggering reveal.
 
 ### Gemini content generation
 ```
