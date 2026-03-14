@@ -203,8 +203,8 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
     # Normalize URL before dedup (strips UTM params)
     job["job_url"] = normalize_job_url(job["job_url"])
 
-    # URL dedup (fastest check first)
-    if db.get_job_by_url(job["job_url"]):
+    # URL dedup (fastest check first — skip if URL is empty to avoid false matches)
+    if job["job_url"] and db.get_job_by_url(job["job_url"]):
         stats.track_b_skipped_dedup += 1
         return
 
