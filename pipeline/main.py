@@ -38,7 +38,7 @@ from pipeline.fetchers import (
     cryptorank_scraper,
     web3career, cryptojobslist_rss, cryptocurrencyjobs_rss,
     dragonfly_jobs, arbitrum_jobs, hashtagweb3, talentweb3,
-    remotive, himalayas, weworkremotely_rss, yc_startups,
+    remotive, himalayas, weworkremotely_rss, jobicy,
 )
 
 
@@ -827,7 +827,7 @@ def main():
         ("remotive",       remotive.fetch),
         ("himalayas",      himalayas.fetch),
         ("weworkremotely", weworkremotely_rss.fetch),
-        ("yc_startups",    yc_startups.fetch),
+        ("jobicy",         jobicy.fetch),
     ]
 
     for name, fetcher_fn in track_c_fetchers:
