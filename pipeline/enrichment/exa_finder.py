@@ -1,19 +1,25 @@
 """
 Exa.ai enrichment — Twitter handle lookup and company LinkedIn search.
 
-Client pool: EXA_API_KEY → EXA_API_KEY_2 (auto-rotates on quota/rate error).
-For company LinkedIn: Exa pool → Hunter.io company enrichment as final fallback.
-For Twitter: called by twitter_finder.py which then falls back to Brave.
+Key concept — two distinct fallback reasons:
 
-Free tier: 1,000 requests/month per key.
-Docs: https://exa.ai/docs
+  1. QUOTA fallback (Exa key 1 → Exa key 2):
+     Same index, same data. Only useful for doubling free-tier quota.
+     Triggered by: API errors, rate limits, quota exhaustion.
+
+  2. DATA fallback (Exa → Hunter for LinkedIn, Exa → Brave for Twitter):
+     Different data sources with different indexes.
+     Triggered by: Exa simply didn't find anything (no error needed).
+     Brave/Hunter may find what Exa missed — always try them when Exa returns nothing.
+
+Free tier: 1,000 requests/month per Exa key.
 """
 import re
 import time
 import requests
 from pipeline.config import EXA_API_KEY, EXA_API_KEY_2, HUNTER_API_KEY, HTTP_TIMEOUT
 
-# ── Client pool ────────────────────────────────────────────────────────────────
+# ── Exa client pool (quota rotation only — same data, double the free tier) ───
 _clients: list | None = None
 _active_idx: int      = 0
 
@@ -33,42 +39,39 @@ def _get_clients() -> list:
 
 def _active_client():
     clients = _get_clients()
-    if not clients:
-        return None
-    return clients[_active_idx]
+    return clients[_active_idx] if clients else None
 
 
 def _rotate_key() -> bool:
-    """Switch to next Exa key. Returns True if rotated, False if none left."""
+    """Rotate to next key on quota/error. Returns True if rotated."""
     global _active_idx
     clients = _get_clients()
     if _active_idx + 1 < len(clients):
         _active_idx += 1
-        print(f"[Exa] Key #{_active_idx} quota hit — switching to key #{_active_idx + 1}")
+        print(f"[Exa] Key {_active_idx} quota hit — rotating to key {_active_idx + 1}")
         return True
     return False
 
 
 def _exa_search(query: str, **kwargs) -> list:
     """
-    Run an Exa search with automatic key rotation on quota errors.
-    Returns list of result objects, or raises if all keys exhausted.
+    Run an Exa search. Rotates keys on quota/error (quota fallback).
+    Returns result list (may be empty). Raises if all keys fail.
+    Note: empty results ≠ error — caller handles data fallback separately.
     """
     clients = _get_clients()
     if not clients:
         raise RuntimeError("No Exa API keys configured.")
 
-    for key_attempt in range(len(clients)):
+    for _ in range(len(clients)):
         client = _active_client()
-        if client is None:
-            break
         try:
             results = client.search(query, **kwargs)
             time.sleep(0.3)
-            return results.results
+            return results.results  # may be [] — not an error
         except Exception as e:
             err = str(e).lower()
-            is_quota = "quota" in err or "rate" in err or "429" in err or "limit" in err
+            is_quota = any(kw in err for kw in ("quota", "rate", "429", "limit", "exceeded"))
             if is_quota and _rotate_key():
                 continue
             raise
@@ -107,24 +110,26 @@ def _score_snippet(snippet: str, company_name: str) -> str:
     return "low"
 
 
-# ── Public API ─────────────────────────────────────────────────────────────────
+# ── Public functions ───────────────────────────────────────────────────────────
 
 def find_twitter_handle(name: str, company_name: str) -> tuple[str, str] | tuple[None, None]:
     """
-    Search Exa (tweet category) for a contact's Twitter/X handle.
-    Extracts handle from tweet URLs: x.com/{handle}/status/...
-    Returns (url, confidence) or (None, None).
-    Raises on Exa failure — caller (twitter_finder.py) falls back to Brave.
+    Search Exa (tweet category) for a Twitter/X handle.
+    Returns (url, confidence) or (None, None) if nothing found.
+    Returns None (not raises) on quota exhaustion — caller tries Brave next.
     """
     if not name or not _get_clients():
         return None, None
 
-    results = _exa_search(
-        f"{name} {company_name}",
-        type="auto",
-        num_results=5,
-        category="tweet",
-    )
+    try:
+        results = _exa_search(
+            f"{name} {company_name}",
+            type="auto",
+            num_results=5,
+            category="tweet",
+        )
+    except Exception:
+        return None, None  # Exa fully down — caller will try Brave
 
     seen: set[str] = set()
     for r in results:
@@ -140,14 +145,11 @@ def find_twitter_handle(name: str, company_name: str) -> tuple[str, str] | tuple
         confidence = _score_snippet(snippet + " " + company_name, company_name)
         return f"https://x.com/{handle}", confidence
 
-    return None, None
+    return None, None  # Nothing found — caller will try Brave
 
 
-def _hunter_company_linkedin(company_name: str, domain: str) -> str | None:
-    """
-    Hunter.io company enrichment as final fallback for LinkedIn.
-    Uses /v2/companies/find — free tier, already have the key.
-    """
+def _hunter_company_linkedin(domain: str) -> str | None:
+    """Hunter.io /companies/find — data fallback for company LinkedIn."""
     if not HUNTER_API_KEY or not domain:
         return None
     try:
@@ -157,8 +159,7 @@ def _hunter_company_linkedin(company_name: str, domain: str) -> str | None:
             timeout=HTTP_TIMEOUT,
         )
         resp.raise_for_status()
-        data = resp.json()
-        return (data.get("data") or {}).get("linkedin") or None
+        return (resp.json().get("data") or {}).get("linkedin") or None
     except Exception:
         return None
 
@@ -166,13 +167,17 @@ def _hunter_company_linkedin(company_name: str, domain: str) -> str | None:
 def find_company_linkedin(company_name: str, domain: str = "") -> str | None:
     """
     Find a company's LinkedIn page URL.
-    Chain: Exa 1 → Exa 2 → Hunter.io company enrichment.
+
+    Data fallback chain (each step tried when previous finds nothing):
+      1. Exa search (with quota rotation between key 1 and key 2)
+      2. Hunter.io /companies/find (different data source)
+
     Returns linkedin.com/company/... URL or None.
     """
-    # ── Exa pool ──────────────────────────────────────────────────────────────
+    # ── Step 1: Exa (with internal quota rotation key 1 → key 2) ─────────────
     if _get_clients():
         try:
-            query = f"{company_name} {domain}".strip() if domain else f"{company_name} crypto web3"
+            query   = f"{company_name} {domain}".strip() if domain else f"{company_name} crypto web3"
             results = _exa_search(
                 query,
                 type="auto",
@@ -184,7 +189,7 @@ def find_company_linkedin(company_name: str, domain: str = "") -> str | None:
                 if _LINKEDIN_CO_RE.search(url):
                     return url.split("?")[0].rstrip("/")
         except Exception:
-            pass  # All Exa keys failed — fall through to Hunter
+            pass  # Exa fully down — move to Hunter
 
-    # ── Hunter fallback ───────────────────────────────────────────────────────
-    return _hunter_company_linkedin(company_name, domain)
+    # ── Step 2: Hunter (different data source — tried whenever Exa finds nothing)
+    return _hunter_company_linkedin(domain)

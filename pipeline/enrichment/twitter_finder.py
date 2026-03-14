@@ -1,13 +1,12 @@
 """
 Find a contact's Twitter/X handle.
 
-Strategy:
-  1. Exa People Search (primary) — better accuracy, 1,000 free requests/month
-  2. Brave Search (fallback) — if Exa unavailable or finds nothing
+Data fallback chain (each step tried when previous finds nothing):
+  1. Exa tweet-category search (with internal quota rotation: key 1 → key 2)
+  2. Brave Search (different index — finds handles Exa may have missed)
 
-Confidence levels:
-  "high" — snippet mentions company name or crypto/web3 keywords
-  "low"  — handle found but no matching signals
+Fallback is triggered by "no data found", not by "quota exhausted".
+Brave is ALWAYS tried if Exa returns nothing, regardless of why.
 """
 import re
 import time
@@ -39,9 +38,7 @@ def _extract_handle(text: str) -> str | None:
     if not m:
         return None
     handle = m.group(1)
-    if handle.lower() in _NON_PROFILE:
-        return None
-    return handle
+    return None if handle.lower() in _NON_PROFILE else handle
 
 
 def _score_snippet(snippet: str, company_name: str) -> str:
@@ -54,7 +51,7 @@ def _score_snippet(snippet: str, company_name: str) -> str:
 
 
 def _brave_find(name: str, company_name: str) -> tuple[str, str] | tuple[None, None]:
-    """Brave Search fallback for Twitter handle lookup."""
+    """Brave Search — different index from Exa, tried when Exa finds nothing."""
     if not BRAVE_API_KEY or not name:
         return None, None
 
@@ -77,11 +74,8 @@ def _brave_find(name: str, company_name: str) -> tuple[str, str] | tuple[None, N
     except Exception as e:
         raise RuntimeError(f"Brave Search failed: {e}")
 
-    results = data.get("web", {}).get("results", [])
-    for result in results:
-        handle = _extract_handle(result.get("url", ""))
-        if not handle:
-            handle = _extract_handle(result.get("description", ""))
+    for result in data.get("web", {}).get("results", []):
+        handle = _extract_handle(result.get("url", "")) or _extract_handle(result.get("description", ""))
         if handle:
             snippet    = result.get("title", "") + " " + result.get("description", "")
             confidence = _score_snippet(snippet, company_name)
@@ -93,16 +87,16 @@ def _brave_find(name: str, company_name: str) -> tuple[str, str] | tuple[None, N
 
 def find_twitter_handle(name: str, company_name: str) -> tuple[str, str] | tuple[None, None]:
     """
-    Find Twitter/X handle: Exa primary → Brave fallback.
-    Returns (url, confidence) or (None, None).
-    """
-    # Try Exa first
-    try:
-        url, confidence = _exa_find(name, company_name)
-        if url:
-            return url, confidence
-    except Exception:
-        pass  # Exa unavailable — fall through to Brave
+    Find Twitter/X handle using cascading data sources.
+    Each source is tried until one returns a result — stop on first match.
 
-    # Brave fallback
+    Step 1 — Exa: returns (url, confidence) or (None, None). Never raises.
+    Step 2 — Brave: tried when Exa finds nothing (different index = different coverage).
+    """
+    # Step 1: Exa (handles internal quota rotation between its own keys)
+    url, confidence = _exa_find(name, company_name)
+    if url:
+        return url, confidence
+
+    # Step 2: Brave — different data source, always try when Exa finds nothing
     return _brave_find(name, company_name)
