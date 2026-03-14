@@ -245,11 +245,13 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
         existing_companies.append({"id": company_id, "name": name, "domain": domain})
 
     # Apollo: find contact
+    # Skip for recruiter/aggregator sources where company_name is the platform, not the hiring co
     contact_id    = None
     contact_name  = ""
     contact_title = ""
+    skip_apollo   = job.get("source") == "talentweb3"
     try:
-        contact_data = apollo.find_contact(name, domain, None)
+        contact_data = apollo.find_contact(name, domain, None) if not skip_apollo else None
         if contact_data and contact_data.get("apollo_person_id"):
             # Enrich company record with org data Apollo returned
             org_update = {}
