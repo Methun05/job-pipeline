@@ -13,7 +13,6 @@ SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 GEMINI_API_KEY       = os.getenv("GEMINI_API_KEY", "")
 APOLLO_API_KEY       = os.getenv("APOLLO_API_KEY", "")
 HUNTER_API_KEY       = os.getenv("HUNTER_API_KEY", "")
-WEB3CAREER_API_KEY   = os.getenv("WEB3CAREER_API_KEY", "")
 BRAVE_API_KEY        = os.getenv("BRAVE_API_KEY", "")
 
 # ── Gemini model ──────────────────────────────────────────────────────────────
