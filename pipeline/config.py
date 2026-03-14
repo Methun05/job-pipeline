@@ -16,6 +16,7 @@ APOLLO_API_KEY       = os.getenv("APOLLO_API_KEY", "")
 HUNTER_API_KEY       = os.getenv("HUNTER_API_KEY", "")
 BRAVE_API_KEY        = os.getenv("BRAVE_API_KEY", "")
 EXA_API_KEY          = os.getenv("EXA_API_KEY", "")
+EXA_API_KEY_2        = os.getenv("EXA_API_KEY_2", "")
 
 # ── Gemini model ──────────────────────────────────────────────────────────────
 GEMINI_MODEL    = "gemini-2.5-flash"
