@@ -59,11 +59,19 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
     if not name:
         return None
 
+    # Normalise Twitter handle → full URL if present
+    raw_twitter = best.get("twitter") or ""
+    twitter_url = None
+    if raw_twitter:
+        handle = raw_twitter.lstrip("@")
+        twitter_url = f"https://x.com/{handle}" if handle else None
+
     return {
         "apollo_person_id": None,
         "name":             name,
         "title":            best.get("position"),
         "linkedin_url":     best.get("linkedin"),
+        "twitter_url":      twitter_url,
         "seniority":        None,
         "org_name":         company_name,
         "org_website":      f"https://{domain}",

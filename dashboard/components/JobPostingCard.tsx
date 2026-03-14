@@ -149,25 +149,28 @@ export default function JobPostingRow({ job, onUpdate }: { job: JobPosting; onUp
         </select>
       </td>
 
-      <td className="px-4 py-4">
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          {websiteUrl && (
-            <a href={websiteUrl} target="_blank" rel="noopener noreferrer"
-              className="text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors" title="Company website">
-              <Globe className="w-3.5 h-3.5" />
-            </a>
-          )}
-          {company?.linkedin_url && (
-            <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer"
-              className="text-zinc-400 dark:text-zinc-500 hover:text-blue-600 transition-colors" title="Company LinkedIn">
-              <Linkedin className="w-3.5 h-3.5" />
-            </a>
-          )}
-          <a href={job.job_url} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors text-xs font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap shadow-sm">
-            <ExternalLink className="w-3 h-3" /> Open
+      {/* Social Links */}
+      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5">
+          <a href={websiteUrl ?? "#"} target="_blank" rel="noopener noreferrer"
+            className={websiteUrl ? "text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors" : "text-zinc-200 dark:text-zinc-700 cursor-default pointer-events-none"}
+            title="Company website" onClick={websiteUrl ? undefined : (e) => e.preventDefault()}>
+            <Globe className="w-3.5 h-3.5" />
+          </a>
+          <a href={company?.linkedin_url ?? "#"} target="_blank" rel="noopener noreferrer"
+            className={company?.linkedin_url ? "text-zinc-400 dark:text-zinc-500 hover:text-blue-600 transition-colors" : "text-zinc-200 dark:text-zinc-700 cursor-default pointer-events-none"}
+            title="Company LinkedIn" onClick={company?.linkedin_url ? undefined : (e) => e.preventDefault()}>
+            <Linkedin className="w-3.5 h-3.5" />
           </a>
         </div>
+      </td>
+
+      {/* Open */}
+      <td className="px-4 py-4">
+        <a href={job.job_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors text-xs font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap shadow-sm">
+          <ExternalLink className="w-3 h-3" /> Open
+        </a>
       </td>
       
     </tr>

@@ -26,7 +26,7 @@ from pipeline.dedup.matcher import find_company_match, normalize_domain
 from pipeline.filters.experience import classify_experience
 from pipeline.filters.remote_scope import detect_remote_scope
 from pipeline.enrichment.twitter_finder import find_twitter_handle
-from pipeline.enrichment.exa_finder import find_company_linkedin
+from pipeline.enrichment.exa_finder import find_company_linkedin, find_company_domain, hunter_enrich_company
 from pipeline.config import (
     DESIGN_ROLE_KEYWORDS, FUNDING_MIN_USD, FUNDING_MAX_USD, NINETY_DAY_RESET, GEMINI_ENABLED,
     CLEANUP_DAYS,
@@ -149,15 +149,19 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
                 if hunter_email:
                     contact_insert["email"] = hunter_email
                     contact_insert["email_revealed"] = True
-                # Twitter enrichment
-                try:
-                    twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
-                    if twitter_url:
-                        contact_insert["twitter_url"] = twitter_url
-                        contact_insert["twitter_confidence"] = twitter_confidence
-                        print(f"[Twitter] Found ({twitter_confidence}): {twitter_url}")
-                except Exception:
-                    pass
+                # Twitter: use Hunter's value if present, otherwise search Exa/Tavily/Brave
+                if contact_insert.get("twitter_url"):
+                    contact_insert["twitter_confidence"] = "high"
+                    print(f"[Twitter] From Hunter: {contact_insert['twitter_url']}")
+                else:
+                    try:
+                        twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
+                        if twitter_url:
+                            contact_insert["twitter_url"] = twitter_url
+                            contact_insert["twitter_confidence"] = twitter_confidence
+                            print(f"[Twitter] Found ({twitter_confidence}): {twitter_url}")
+                    except Exception:
+                        pass
                 contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
             contact_name  = contact_data.get("name", "")
             contact_title = contact_data.get("title", "")
@@ -271,6 +275,33 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
         })
         existing_companies.append({"id": company_id, "name": name, "domain": domain})
 
+    # Domain discovery — if fetcher gave no website, find it via Exa/Tavily
+    if not domain and name:
+        try:
+            discovered = find_company_domain(name)
+            if discovered:
+                domain = discovered
+                db.update_company(company_id, {"domain": domain, "website": f"https://{domain}"})
+                print(f"[Domain] Discovered for {name}: {domain}")
+        except Exception:
+            pass
+
+    # Hunter company enrichment — FREE, no credits, gets LinkedIn + Twitter from domain
+    if domain:
+        try:
+            company_row_current = db.get_company(company_id)
+            needs_linkedin = not (company_row_current or {}).get("linkedin_url")
+            if needs_linkedin:
+                enriched = hunter_enrich_company(domain, name)
+                update = {}
+                if enriched.get("linkedin"):
+                    update["linkedin_url"] = enriched["linkedin"]
+                if update:
+                    db.update_company(company_id, update)
+                    print(f"[Hunter] Company enriched for {name}: {update}")
+        except Exception:
+            pass
+
     # Apollo → Hunter fallback: find contact
     # Skip for recruiter/aggregator sources where company_name is the platform, not the hiring co
     contact_id    = None
@@ -309,15 +340,19 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
                 if hunter_email:
                     contact_insert["email"] = hunter_email
                     contact_insert["email_revealed"] = True
-                # Twitter enrichment
-                try:
-                    twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
-                    if twitter_url:
-                        contact_insert["twitter_url"] = twitter_url
-                        contact_insert["twitter_confidence"] = twitter_confidence
-                        print(f"[Twitter] Found ({twitter_confidence}): {twitter_url}")
-                except Exception:
-                    pass
+                # Twitter: use Hunter's value if present, otherwise search Exa/Tavily/Brave
+                if contact_insert.get("twitter_url"):
+                    contact_insert["twitter_confidence"] = "high"
+                    print(f"[Twitter] From Hunter: {contact_insert['twitter_url']}")
+                else:
+                    try:
+                        twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
+                        if twitter_url:
+                            contact_insert["twitter_url"] = twitter_url
+                            contact_insert["twitter_confidence"] = twitter_confidence
+                            print(f"[Twitter] Found ({twitter_confidence}): {twitter_url}")
+                    except Exception:
+                        pass
                 contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
             contact_name  = contact_data.get("name", "")
             contact_title = contact_data.get("title", "")

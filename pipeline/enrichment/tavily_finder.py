@@ -118,6 +118,40 @@ def find_twitter_handle(name: str, company_name: str) -> tuple[str, str] | tuple
     return f"https://x.com/{handle}", confidence
 
 
+def find_company_domain(company_name: str) -> str | None:
+    """
+    Search Tavily for a company's official website domain.
+    Returns bare domain (e.g. 'mystenlabs.com') or None.
+    """
+    if not TAVILY_API_KEY:
+        return None
+
+    from pipeline.dedup.matcher import normalize_domain
+
+    try:
+        results = _tavily_search(
+            f"{company_name} crypto official website",
+            include_domains=[],
+            max_results=5,
+        )
+    except Exception:
+        return None
+
+    skip = {"linkedin", "twitter", "x.com", "crunchbase", "techcrunch",
+            "coindesk", "cointelegraph", "web3.career", "cryptojobslist",
+            "decrypt.co", "blockworks.co", "theblock.co"}
+
+    for r in results:
+        url = r.get("url", "")
+        if any(s in url for s in skip):
+            continue
+        domain = normalize_domain(url)
+        if domain:
+            return domain
+
+    return None
+
+
 def find_company_linkedin(company_name: str, domain: str = "") -> str | None:
     """
     Search Tavily for a company's LinkedIn page.

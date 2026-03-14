@@ -193,7 +193,8 @@ export default function JobsPage() {
                     </th>
                     <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Application</th>
                     <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Outreach</th>
-                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Links</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Social Links</th>
+                    <th className="px-4 py-2.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Open</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">

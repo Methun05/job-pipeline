@@ -148,10 +148,17 @@ def find_twitter_handle(name: str, company_name: str) -> tuple[str, str] | tuple
     return None, None  # Nothing found — caller will try Brave
 
 
-def _hunter_company_linkedin(domain: str) -> str | None:
-    """Hunter.io /companies/find — data fallback for company LinkedIn."""
+def hunter_enrich_company(domain: str, company_name: str = "") -> dict:
+    """
+    Hunter.io /companies/find — FREE endpoint, no credits consumed.
+    Returns dict with linkedin, twitter, website fields (all may be None).
+    Requires domain (name-based lookup returns 400 for most companies).
+
+    Response fields can be strings or nested dicts — handles both.
+    Validates returned company name against expected name to avoid wrong matches.
+    """
     if not HUNTER_API_KEY or not domain:
-        return None
+        return {}
     try:
         resp = requests.get(
             "https://api.hunter.io/v2/companies/find",
@@ -159,7 +166,82 @@ def _hunter_company_linkedin(domain: str) -> str | None:
             timeout=HTTP_TIMEOUT,
         )
         resp.raise_for_status()
-        return (resp.json().get("data") or {}).get("linkedin") or None
+        data = resp.json().get("data") or {}
+    except Exception:
+        return {}
+
+    # Validate: if company_name provided, check Hunter's name is a rough match
+    if company_name:
+        returned_name = (data.get("name") or "").lower()
+        query_name    = company_name.lower()
+        # Allow if any word from query appears in returned name, or domain contains part of name
+        name_words = [w for w in query_name.split() if len(w) > 3]
+        domain_str = domain.lower()
+        match_ok = (
+            not name_words  # no words to check
+            or any(w in returned_name for w in name_words)
+            or any(w in domain_str for w in name_words)
+        )
+        if not match_ok:
+            return {}
+
+    def _extract_url(field, prefix: str) -> str | None:
+        """Handle Hunter returning either a string URL or a dict with 'handle'."""
+        if not field:
+            return None
+        if isinstance(field, str):
+            val = field.strip().lstrip("@")
+            return val if val.startswith("http") else f"{prefix}{val}"
+        if isinstance(field, dict):
+            handle = (field.get("handle") or field.get("url") or "").strip().lstrip("@")
+            if not handle:
+                return None
+            return handle if handle.startswith("http") else f"{prefix}{handle}"
+        return None
+
+    linkedin = _extract_url(data.get("linkedin"), "https://linkedin.com/")
+    twitter  = _extract_url(data.get("twitter"),  "https://x.com/")
+
+    return {
+        "linkedin": linkedin,
+        "twitter":  twitter,
+        "website":  data.get("website") or None,
+    }
+
+
+def find_company_domain(company_name: str) -> str | None:
+    """
+    Discover a company's website domain from its name using Exa neural search.
+    Falls back to Tavily. Used when fetcher doesn't provide company_website.
+    Returns bare domain string (e.g. 'mystenlabs.com') or None.
+    """
+    from pipeline.dedup.matcher import normalize_domain
+
+    # ── Step 1: Exa neural search ─────────────────────────────────────────────
+    if _get_clients():
+        try:
+            results = _exa_search(
+                f"{company_name} crypto web3 official website",
+                type="neural",
+                num_results=5,
+            )
+            for r in results:
+                url = r.url or ""
+                # Skip LinkedIn, Twitter, job boards, news sites
+                if any(skip in url for skip in ("linkedin", "twitter", "x.com", "crunchbase",
+                                                 "techcrunch", "coindesk", "cointelegraph",
+                                                 "web3.career", "cryptojobslist")):
+                    continue
+                domain = normalize_domain(url)
+                if domain:
+                    return domain
+        except Exception:
+            pass
+
+    # ── Step 2: Tavily ────────────────────────────────────────────────────────
+    try:
+        from pipeline.enrichment.tavily_finder import find_company_domain as _tavily_domain
+        return _tavily_domain(company_name)
     except Exception:
         return None
 
@@ -199,4 +281,4 @@ def find_company_linkedin(company_name: str, domain: str = "") -> str | None:
         return result
 
     # ── Step 3: Hunter ────────────────────────────────────────────────────────
-    return _hunter_company_linkedin(domain)
+    return hunter_enrich_company(domain, company_name).get("linkedin")
