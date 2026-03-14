@@ -102,10 +102,12 @@ function useRowState(lead: FundedLead, onStatusChange: (id: string, status: Fund
       const res  = await fetch("/api/reveal-email", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          apollo_person_id: contact.apollo_person_id,
-          contact_id:       contact.id,
-          contact_name:     contact.name,
-          contact_domain:   domain,
+          apollo_person_id:    contact.apollo_person_id,
+          contact_id:          contact.id,
+          contact_name:        contact.name,
+          contact_domain:      domain,
+          company_name:        lead.companies?.name,
+          contact_linkedin_url: contact.linkedin_url,
         }),
       });
       const data = await res.json();

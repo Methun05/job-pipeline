@@ -146,11 +146,12 @@ export default function JobDetailPage() {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
-          apollo_person_id: c.apollo_person_id,
-          contact_id:       c.id,
-          contact_name:     c.name,
-          contact_domain:   domain,
-          company_name:     job.companies?.name,
+          apollo_person_id:    c.apollo_person_id,
+          contact_id:          c.id,
+          contact_name:        c.name,
+          contact_domain:      domain,
+          company_name:        job.companies?.name,
+          contact_linkedin_url: c.linkedin_url,
         }),
       });
       const data = await res.json();
