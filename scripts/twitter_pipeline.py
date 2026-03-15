@@ -32,7 +32,7 @@ def get_supabase():
 
 
 def run():
-    print(f"[TwitterPipeline] Starting at {datetime.now(timezone.utc).isoformat()}")
+    print(f"[TwitterPipeline] v4 — Starting at {datetime.now(timezone.utc).isoformat()}")
 
     # ── Step 1: Fetch + Gate 1 ────────────────────────────────────────────────
     leads = fetch_tweets(days_back=7)
