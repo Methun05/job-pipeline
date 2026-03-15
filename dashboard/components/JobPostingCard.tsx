@@ -13,7 +13,19 @@ const SOURCE_LABELS: Record<string, string> = {
   arbitrum:           "Arbitrum",
   hashtagweb3:        "#Web3",
   talentweb3:         "TalentWeb3",
+  solana_jobs:        "Solana Jobs",
 };
+
+function getDisplayLocation(job: JobPosting): string {
+  if (job.description_summary) {
+    try {
+      const parsed = JSON.parse(job.description_summary);
+      const cl = parsed.candidate_location;
+      if (cl && cl !== "Not specified") return cl;
+    } catch {}
+  }
+  return job.location || "—";
+}
 
 const APP_OPTIONS: { value: AppStatus; label: string; color: string }[] = [
   { value: "new",       label: "Not Applied", color: "text-zinc-500 dark:text-zinc-400" },
@@ -73,7 +85,7 @@ export function JobPostingMobileCard({ job, onUpdate }: { job: JobPosting; onUpd
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className="text-xs text-zinc-600 dark:text-zinc-400">{company?.name || "—"}</span>
-            {job.location && <span className="text-[11px] text-zinc-400 dark:text-zinc-500">· {job.location}</span>}
+            {getDisplayLocation(job) !== "—" && <span className="text-[11px] text-zinc-400 dark:text-zinc-500">· {getDisplayLocation(job)}</span>}
             {websiteUrl && <a href={websiteUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"><Globe className="w-3 h-3" /></a>}
             {company?.linkedin_url && <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-zinc-400 hover:text-blue-600"><Linkedin className="w-3 h-3" /></a>}
           </div>
@@ -123,7 +135,7 @@ export default function JobPostingRow({ job, onUpdate }: { job: JobPosting; onUp
       </td>
 
       <td className="px-4 py-4 whitespace-nowrap">
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">{job.location || "—"}</span>
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">{getDisplayLocation(job)}</span>
       </td>
 
       <td className="px-4 py-4 whitespace-nowrap">
