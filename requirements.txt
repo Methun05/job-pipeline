@@ -6,4 +6,4 @@ google-genai>=0.8.0
 python-dotenv==1.0.1
 beautifulsoup4==4.12.3
 lxml==5.1.0
-exa-py>=2.9.0
+exa-py>=1.14.0,<2.0.0
