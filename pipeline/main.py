@@ -14,7 +14,8 @@ Execution order:
 import sys
 import json
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse, urlunparse
 
 import pipeline.db as db
@@ -29,7 +30,7 @@ from pipeline.enrichment.twitter_finder import find_twitter_handle
 from pipeline.enrichment.exa_finder import find_company_linkedin, find_company_domain, hunter_enrich_company
 from pipeline.config import (
     DESIGN_ROLE_KEYWORDS, FUNDING_MIN_USD, FUNDING_MAX_USD, NINETY_DAY_RESET, GEMINI_ENABLED,
-    CLEANUP_DAYS,
+    CLEANUP_DAYS, TRACK_C_HOURS_WINDOW,
 )
 
 from pipeline.filters.visa_check import check_visa_sponsorship
@@ -83,6 +84,35 @@ class Stats:
 def is_design_role(job: dict) -> bool:
     title = job.get("job_title", "").lower()
     return any(kw in title for kw in DESIGN_ROLE_KEYWORDS)
+
+
+def _parse_posted_at(posted_at) -> datetime | None:
+    """Parse ISO 8601 or RFC 822 date strings into an aware datetime. Returns None on failure."""
+    if not posted_at:
+        return None
+    if isinstance(posted_at, datetime):
+        return posted_at if posted_at.tzinfo else posted_at.replace(tzinfo=timezone.utc)
+    s = str(posted_at).strip()
+    # Try ISO 8601 first (Remotive, Himalayas)
+    try:
+        dt = datetime.fromisoformat(s)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        pass
+    # Try RFC 822 (WeWorkRemotely, Jobicy RSS dates)
+    try:
+        return parsedate_to_datetime(s)
+    except Exception:
+        return None
+
+
+def _is_within_window(posted_at, hours: int) -> bool:
+    """Return True if posted_at is within the last N hours. Skips job if date is missing or unparseable."""
+    dt = _parse_posted_at(posted_at)
+    if dt is None:
+        return False
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    return dt >= cutoff
 
 
 # ── Track A processing ────────────────────────────────────────────────────────
@@ -842,6 +872,12 @@ def main():
     design_general = [j for j in raw_general if is_design_role(j)]
     skipped_role_c = len(raw_general) - len(design_general)
     print(f"[Track C] Role filter: {len(design_general)} design roles from {len(raw_general)} total ({skipped_role_c} skipped)")
+
+    # Time window filter — only jobs posted within last TRACK_C_HOURS_WINDOW hours
+    recent_general = [j for j in design_general if _is_within_window(j.get("posted_at"), TRACK_C_HOURS_WINDOW)]
+    skipped_old_c  = len(design_general) - len(recent_general)
+    print(f"[Track C] Time filter: {len(recent_general)} recent jobs ({skipped_old_c} skipped — older than {TRACK_C_HOURS_WINDOW}h)")
+    design_general = recent_general
 
     for job in design_general:
         try:
