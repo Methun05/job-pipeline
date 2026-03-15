@@ -165,7 +165,7 @@ export default function JobsPage() {
       ) : (
         <>
           {/* ── Mobile card list ── */}
-          <div className="md:hidden rounded-xl border border-zinc-200 dark:border-zinc-800 mx-4 mt-4 mb-8 overflow-hidden bg-white dark:bg-zinc-900 shadow-sm">
+          <div className="md:hidden flex flex-col gap-3 mx-4 mt-4 mb-8">
             {filtered.map(job => (
               <JobPostingMobileCard key={job.id} job={job} onUpdate={handleUpdate} />
             ))}

@@ -181,7 +181,7 @@ export default function FundedPage() {
       ) : (
         <>
           {/* ── Mobile card list ── */}
-          <div className="md:hidden rounded-xl border border-zinc-200 mx-4 mt-4 mb-8 overflow-hidden">
+          <div className="md:hidden flex flex-col gap-3 mx-4 mt-4 mb-8">
             {filtered.map(lead => (
               <FundedCompanyMobileCard key={lead.id} lead={lead} onStatusChange={handleStatusChange} />
             ))}

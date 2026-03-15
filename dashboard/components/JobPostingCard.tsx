@@ -64,7 +64,7 @@ export function JobPostingMobileCard({ job, onUpdate }: { job: JobPosting; onUpd
   const websiteUrl = company?.website ? (company.website.startsWith("http") ? company.website : "https://" + company.website) : company?.domain ? "https://" + company.domain : null;
 
   return (
-    <div className="border-b border-zinc-100 dark:border-zinc-800 px-4 py-3 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors" onClick={() => router.push(`/jobs/${job.id}`)}>
+    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-4 cursor-pointer hover:border-violet-500 transition-colors" onClick={() => router.push(`/jobs/${job.id}`)}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
