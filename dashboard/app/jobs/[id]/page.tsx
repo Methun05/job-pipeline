@@ -41,17 +41,14 @@ export default function JobDetailPage() {
 
   const [job, setJob] = useState<JobPosting | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"summary" | "cover_letter" | "email" | "linkedin" | "chat">("summary");
-  
-  // State for AI generation
-  const [genLoading, setGenLoading] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"summary" | "chat">("summary");
+
+  const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
-  // Email reveal
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError]     = useState<string | null>(null);
 
-  // Notes
   const [notes, setNotes] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
@@ -62,13 +59,11 @@ export default function JobDetailPage() {
         .select("*, companies(*), contacts(*)")
         .eq("id", id)
         .single();
-        
       if (data) {
         setJob(data as JobPosting);
         setNotes(data.notes || "");
-        // Auto-generate requirements if not already done
         if (!data.description_summary && data.description_raw) {
-          generateContent("generate_summary", data as JobPosting);
+          generateSummary(data as JobPosting);
         }
       }
       setLoading(false);
@@ -96,43 +91,32 @@ export default function JobDetailPage() {
     setTimeout(() => setSaveState("idle"), 2000);
   }
 
-  async function generateContent(action: "generate_cover_letter" | "generate_email" | "generate_linkedin" | "generate_summary", jobOverride?: JobPosting) {
+  async function generateSummary(jobOverride?: JobPosting) {
     const target = jobOverride || job;
     if (!target) return;
-    setGenLoading(action);
+    setGenLoading(true);
     setGenError(null);
-
     try {
       const res = await fetch("/api/generate-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action,
+          action: "generate_summary",
           jobTitle: target.job_title,
           companyName: target.companies?.name || "the company",
           description: target.description_raw,
-          contactName: target.contacts?.name,
-          contactTitle: target.contacts?.title,
           requirements: target.description_summary,
-        })
+        }),
       });
-
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
-      let updates: Partial<JobPosting> = {};
-      if (action === "generate_cover_letter") updates = { cover_letter: data.text };
-      else if (action === "generate_linkedin")  updates = { linkedin_note: data.text };
-      else if (action === "generate_email")     updates = { email_draft: `Subject: ${data.subject}\n\n${data.body}` };
-      else if (action === "generate_summary")   updates = { description_summary: JSON.stringify(data) };
-
+      const updates = { description_summary: JSON.stringify(data) };
       await supabase.from("job_postings").update(updates).eq("id", target.id);
       setJob(prev => prev ? { ...prev, ...updates } : prev);
-
     } catch (e: any) {
       setGenError(e.message || "Generation failed");
     } finally {
-      setGenLoading(null);
+      setGenLoading(false);
     }
   }
 
@@ -147,11 +131,11 @@ export default function JobDetailPage() {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
-          apollo_person_id:    c.apollo_person_id,
-          contact_id:          c.id,
-          contact_name:        c.name,
-          contact_domain:      domain,
-          company_name:        job.companies?.name,
+          apollo_person_id:     c.apollo_person_id,
+          contact_id:           c.id,
+          contact_name:         c.name,
+          contact_domain:       domain,
+          company_name:         job.companies?.name,
           contact_linkedin_url: c.linkedin_url,
         }),
       });
@@ -183,7 +167,7 @@ export default function JobDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F4] dark:bg-[#0f0f10] p-4 md:p-8">
-      {/* ── Header ── */}
+      {/* Header */}
       <button onClick={() => router.back()} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors mb-6 group">
         <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" /> Back to Jobs
       </button>
@@ -199,13 +183,11 @@ export default function JobDetailPage() {
               <span>{format(new Date(job.posted_at || job.created_at), "MMM d, yyyy")}</span>
             </div>
           </div>
-          {/* View Job — always visible, top right on mobile */}
           <a href={job.job_url} target="_blank" rel="noopener noreferrer"
             className="self-start flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-lg font-medium text-sm hover:opacity-90 transition-opacity whitespace-nowrap shrink-0">
             <ExternalLink className="w-3.5 h-3.5" /> View Job
           </a>
         </div>
-        {/* Status dropdowns — full width row on mobile */}
         <div className="flex flex-wrap gap-2 mt-3">
           <select value={job.application_status} onChange={e => updateApp(e.target.value as AppStatus)} className={`flex-1 min-w-[120px] ${selectClass} ${getColor(APP_OPTIONS, job.application_status)}`}>
             {APP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -216,17 +198,15 @@ export default function JobDetailPage() {
         </div>
       </div>
 
-      {/* ── Two Column Layout ── */}
+      {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left Column: Context */}
+
+        {/* Left Column */}
         <div className="lg:col-span-4 space-y-6">
-          
-          {/* Company + Founder Card */}
+
+          {/* Company + Contact Card */}
           {(company || contact) && (
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-
-              {/* Company section */}
               {company && (
                 <div className={`px-5 py-4 ${contact ? "border-b border-zinc-100 dark:border-zinc-800" : ""}`}>
                   <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2">Company</p>
@@ -255,7 +235,6 @@ export default function JobDetailPage() {
                 </div>
               )}
 
-              {/* Founder / Contact section */}
               {contact && (
                 <div className="px-5 py-4">
                   <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Founder / Contact</p>
@@ -287,8 +266,6 @@ export default function JobDetailPage() {
                       </a>
                     )}
                   </div>
-
-                  {/* Email section */}
                   <div className="mt-3">
                     {contact.email ? (
                       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
@@ -303,21 +280,18 @@ export default function JobDetailPage() {
                         {emailLoading ? "Finding email…" : "Find Email"}
                       </button>
                     )}
-                    {emailError && (
-                      <p className="mt-1.5 text-[11px] text-red-500 dark:text-red-400">{emailError}</p>
-                    )}
+                    {emailError && <p className="mt-1.5 text-[11px] text-red-500 dark:text-red-400">{emailError}</p>}
                   </div>
                 </div>
               )}
-
             </div>
           )}
 
           {/* Notes */}
           <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-             <h3 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Your Notes</h3>
-             <Textarea value={notes} onChange={setNotes} placeholder="Add research notes here..." className="mb-3 min-h-[120px]" />
-             <Button variant="ghost" size="sm" onClick={saveNotes} disabled={saveState !== "idle"} className="w-full justify-center">
+            <h3 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Your Notes</h3>
+            <Textarea value={notes} onChange={setNotes} placeholder="Add research notes here..." className="mb-3 min-h-[120px]" />
+            <Button variant="ghost" size="sm" onClick={saveNotes} disabled={saveState !== "idle"} className="w-full justify-center">
               {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved ✓" : "Save Notes"}
             </Button>
           </div>
@@ -327,38 +301,32 @@ export default function JobDetailPage() {
         {/* Right Column: AI Workspace */}
         <div className="lg:col-span-8">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden h-full flex flex-col min-h-[600px]">
-            
+
             {/* Tabs */}
-            <div className="relative border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-              {/* Fade hint — shows more tabs exist on mobile */}
-              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-zinc-50 dark:from-zinc-900 to-transparent z-10 md:hidden" />
-            <div className="flex overflow-x-auto hide-scrollbar">
-              {[
-                { id: "summary", label: "Requirements" },
-                { id: "cover_letter", label: "Cover Letter" },
-                { id: "email", label: "Email Draft" },
-                { id: "linkedin", label: "LinkedIn Note" },
-                { id: "chat", label: "💬 Chat" },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                    activeTab === tab.id 
-                    ? "border-violet-500 text-violet-600 dark:text-violet-400 bg-white dark:bg-zinc-800/50 shadow-sm" 
-                    : "border-transparent text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/20"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <div className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+              <div className="flex">
+                {[
+                  { id: "summary", label: "Requirements" },
+                  { id: "chat",    label: "💬 Chat" },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                      activeTab === tab.id
+                        ? "border-violet-500 text-violet-600 dark:text-violet-400 bg-white dark:bg-zinc-800/50 shadow-sm"
+                        : "border-transparent text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/20"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Tab Content */}
             <div className="p-6 flex-1 overflow-y-auto">
 
-              {/* Inline error */}
               {genError && (
                 <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-400 flex items-center justify-between">
                   <span>{genError}</span>
@@ -405,39 +373,18 @@ export default function JobDetailPage() {
                     )}
                   </div>
                 ) : (
-                  <EmptyGenerationState
-                    loading={genLoading === "generate_summary"}
-                    onClick={() => generateContent("generate_summary")}
-                    label="Analyze Job Posting"
-                  />
+                  <div className="flex flex-col h-full min-h-[400px] items-center justify-center text-center space-y-4">
+                    <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-500 mb-2">
+                      <Sparkles className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">No requirements extracted yet</h3>
+                    <Button onClick={() => generateSummary()} disabled={genLoading} className="gap-2 bg-violet-600 hover:bg-violet-700 text-white min-w-[200px] justify-center">
+                      {genLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      {genLoading ? "Analyzing..." : "✨ Analyze Job Posting"}
+                    </Button>
+                  </div>
                 );
               })()}
-
-              {/* Cover Letter Tab — chat-based, always mounted to preserve history */}
-              <div className={`h-full flex flex-col ${activeTab === "cover_letter" ? "" : "hidden"}`} style={{ minHeight: "460px" }}>
-                <ChatPanel
-                  jobContext={{ title: job.job_title, company: company?.name ?? "", description: job.description_raw ?? undefined }}
-                  initialMessage={`Write me a cover letter for the ${job.job_title} role at ${company?.name || "this company"}. Write in 3 to 4 proper paragraphs, 250 to 300 words, no bullet points.`}
-                />
-              </div>
-
-              {/* Email Tab */}
-              {activeTab === "email" && (
-                job.email_draft ? (
-                  <ContentDisplay content={job.email_draft} onRegenerate={() => generateContent("generate_email")} regenerating={genLoading === "generate_email"} />
-                ) : (
-                  <EmptyGenerationState loading={genLoading === "generate_email"} onClick={() => generateContent("generate_email")} label="Draft Cold Email" />
-                )
-              )}
-
-              {/* LinkedIn Tab */}
-              {activeTab === "linkedin" && (
-                job.linkedin_note ? (
-                  <ContentDisplay content={job.linkedin_note} onRegenerate={() => generateContent("generate_linkedin")} regenerating={genLoading === "generate_linkedin"} />
-                ) : (
-                  <EmptyGenerationState loading={genLoading === "generate_linkedin"} onClick={() => generateContent("generate_linkedin")} label="Draft LinkedIn Note" />
-                )
-              )}
 
               {/* Chat Tab — always mounted to preserve history */}
               <div className={`h-full flex flex-col ${activeTab === "chat" ? "" : "hidden"}`} style={{ minHeight: "460px" }}>
@@ -454,39 +401,6 @@ export default function JobDetailPage() {
           </div>
         </div>
 
-      </div>
-    </div>
-  );
-}
-
-function EmptyGenerationState({ loading, onClick, label }: { loading: boolean, onClick: () => void, label: string }) {
-  return (
-    <div className="flex flex-col h-full min-h-[400px] items-center justify-center text-center space-y-4">
-      <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-500 mb-2">
-        <Sparkles className="w-8 h-8" />
-      </div>
-      <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">No content generated yet</h3>
-      <p className="text-sm text-zinc-500 mb-4 max-w-sm">Use AI to instantly draft an personalized artifact based on your career profile and the raw job description.</p>
-      <Button onClick={onClick} disabled={loading} className="gap-2 bg-violet-600 hover:bg-violet-700 text-white min-w-[200px] justify-center">
-        {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Sparkles className="w-4 h-4" />}
-        {loading ? "Generating..." : `✨ ${label}`}
-      </Button>
-    </div>
-  );
-}
-
-function ContentDisplay({ content, onRegenerate, regenerating }: { content: string; onRegenerate: () => void; regenerating: boolean }) {
-  return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-3">
-        <button onClick={onRegenerate} disabled={regenerating}
-          className="text-xs text-zinc-400 hover:text-violet-600 transition-colors disabled:opacity-50">
-          {regenerating ? "Regenerating..." : "↺ Regenerate"}
-        </button>
-        <CopyButton text={content} label="Copy" />
-      </div>
-      <div className="flex-1 bg-zinc-50 dark:bg-zinc-800/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap font-serif">
-        {content}
       </div>
     </div>
   );
