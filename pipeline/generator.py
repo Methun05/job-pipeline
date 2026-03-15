@@ -90,8 +90,8 @@ def _call_gemini(prompt: str) -> dict:
     return json.loads(text)
 
 
-def fetch_website_text(url: str) -> str:
-    """Fetch and strip company website to plain text. Returns empty string on failure."""
+def fetch_website_text(url: str, max_chars: int = 1500) -> str:
+    """Fetch and strip a webpage to plain text. Returns empty string on failure."""
     if not url:
         return ""
     try:
@@ -104,7 +104,7 @@ def fetch_website_text(url: str) -> str:
         soup = BeautifulSoup(resp.text, "lxml")
         for tag in soup(["script", "style", "nav", "footer", "header"]):
             tag.decompose()
-        return soup.get_text(separator=" ", strip=True)[:1500]
+        return soup.get_text(separator=" ", strip=True)[:max_chars]
     except Exception:
         return ""
 
@@ -198,14 +198,20 @@ def generate_job_content(
     needs_remote_classification: bool = False,
     contact_name: str = "",
     contact_title: str = "",
+    job_page_text: str = "",
 ) -> dict:
     """
     Returns: {
-      requirements_bullets, cover_letter, linkedin_note, email_subject, email_body,
+      requirements_bullets, candidate_location,
       experience_match (if requested), remote_scope (if requested)
     }
+    job_page_text: full text fetched from the actual job URL — preferred over description
+                   if available (scraped descriptions are often partial/tag-only).
     """
     p = PROFILE
+
+    # Use the full job page if available — far more accurate than scraped description_raw
+    best_description = job_page_text if len(job_page_text) > len(description) else description
 
     extra_tasks = ""
     extra_fields = ""
@@ -228,14 +234,16 @@ Background: {p['background']}
 Job: {job_title} at {company_name}
 
 Job description:
-{description[:2500]}
+{best_description[:3000]}
 
 Tasks:{extra_tasks}
 - Extract 3 key requirements as bullet points
+- Identify where the candidate must physically be located (NOT the company HQ — where the employee needs to work from)
 
 Return a JSON object with these exact keys:
 {{{extra_fields}
-  "requirements_bullets": ["requirement 1", "requirement 2", "requirement 3"]
+  "requirements_bullets": ["requirement 1", "requirement 2", "requirement 3"],
+  "candidate_location": "short plain string — e.g. 'San Francisco, CA (onsite)', 'Remote – US only', 'Remote – worldwide', 'Europe timezone required', 'Not specified'"
 }}
 
 Return only the JSON object, no other text."""

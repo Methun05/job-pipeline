@@ -94,12 +94,14 @@ Return ONLY a JSON object with these exact keys:
 {
   "location": "city/remote info extracted from description, or null if not mentioned",
   "salary": "salary or compensation range if mentioned, or null if not mentioned",
-  "requirements": ["requirement 1", "requirement 2", "requirement 3"]
+  "requirements": ["requirement 1", "requirement 2", "requirement 3"],
+  "candidate_location": "where must the candidate/employee physically be located? This is NOT the company HQ — it is where the person doing this job needs to work from. Return a short plain string like 'San Francisco, CA (onsite)', 'Remote – US only', 'Remote – worldwide', 'Europe timezone required', or 'Not specified' if unclear."
 }
 
 For requirements: exactly 3 strings, each the most important thing a Product Designer needs for this role.
 For location: prefer info from the description over the job title. null if truly absent.
 For salary: null if not mentioned at all.
+For candidate_location: always return a string, never null — use 'Not specified' if the posting does not mention it.
 
 Return ONLY the JSON object, no markdown, no explanation.`;
         break;

@@ -402,6 +402,14 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
     except Exception:
         pass
 
+    # Fetch full job page — gives Gemini the real description instead of partial scraper text
+    job_page_text = ""
+    if job.get("job_url"):
+        try:
+            job_page_text = gen.fetch_website_text(job["job_url"], max_chars=3000)
+        except Exception:
+            pass
+
     # Gemini: generate summary and classifications in one call (skipped if disabled)
     description_summary = None
     cover_letter        = None # No longer generated in pipeline
@@ -420,11 +428,13 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
                 needs_remote_classification     = needs_remote_groq,
                 contact_name   = contact_name,
                 contact_title  = contact_title,
+                job_page_text  = job_page_text,
             )
             description_summary = json.dumps({
-                "location":     result.get("location"),
-                "salary":       result.get("salary"),
-                "requirements": result.get("requirements_bullets", []),
+                "location":           result.get("location"),
+                "salary":             result.get("salary"),
+                "requirements":       result.get("requirements_bullets", []),
+                "candidate_location": result.get("candidate_location"),
             })
             
             if needs_exp_groq and result.get("experience_match"):

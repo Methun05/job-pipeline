@@ -336,12 +336,19 @@ export default function JobDetailPage() {
 
               {/* Requirements Tab */}
               {activeTab === "summary" && (() => {
-                let parsed: { location?: string | null; salary?: string | null; requirements?: string[] } | null = null;
+                let parsed: { location?: string | null; salary?: string | null; requirements?: string[]; candidate_location?: string | null } | null = null;
                 if (job.description_summary) {
                   try { parsed = JSON.parse(job.description_summary); } catch { parsed = null; }
                 }
                 return parsed ? (
                   <div className="space-y-5">
+                    {/* Candidate location — top decision card */}
+                    {parsed.candidate_location && parsed.candidate_location !== "Not specified" && (
+                      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+                        <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1.5">Where You'd Need to Be</p>
+                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">{parsed.candidate_location}</p>
+                      </div>
+                    )}
                     {(parsed.location || parsed.salary) && (
                       <div className="grid grid-cols-2 gap-4">
                         {parsed.location && (
