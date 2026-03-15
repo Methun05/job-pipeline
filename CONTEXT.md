@@ -6,7 +6,7 @@
 
 ## Why this exists
 
-Job hunting manually is slow. This pipeline automates two specific strategies for a **Product Designer (4 years exp, crypto/web3 UX)** looking for remote roles:
+Job hunting manually is slow. This pipeline automates two specific strategies for a **Product Designer (5 years exp, crypto/web3 UX)** looking for remote roles:
 
 1. **Proactive outreach** — Find companies the moment they get funded (warm money = active hiring). Reach out before they post a job.
 2. **Passive monitoring** — Watch all major crypto job boards daily and surface only the relevant design roles.
@@ -39,14 +39,27 @@ It runs every day at **8 AM IST** and results appear at **https://tracker.methun
 
 ## Track B — Job Postings
 
-**Sources (7 total):**
-- web3.career (scraper — /design-jobs page, no API key)
+**Sources (10 total):**
+- web3career (scraper — /design-jobs page, no API key)
 - cryptojobslist (RSS)
 - cryptocurrencyjobs (RSS)
-- dragonfly (scraper)
-- arbitrum (scraper)
-- hashtagweb3 (scraper)
-- talentweb3 (recruiter aggregator)
+- dragonfly (scraper — Getro platform, jobs.dragonfly.xyz)
+- arbitrum (scraper — Getro platform, jobs.arbitrum.io)
+- hashtagweb3 (scraper — hashtagweb3.com, JSON-LD schema, 260+ listings)
+- talentweb3 (recruiter aggregator — skip contact search for this source)
+- solana_jobs (scraper — Getro platform, jobs.solana.com)
+- paradigm (scraper — paradigm.xyz/jobs, 600+ portfolio company jobs, has salary data)
+- sui_jobs (scraper — Getro platform, jobs.sui.io)
+
+**Getro platform pattern** (dragonfly, arbitrum, solana_jobs, sui_jobs):
+- All use `__NEXT_DATA__` SSR → `props.pageProps.initialState.jobs.found`
+- `url` field is a direct job URL on Solana/Sui boards
+- `organization.websiteUrl` may not exist on all Getro boards
+
+**Paradigm board specifics:**
+- `__NEXT_DATA__` → `props.pageProps.jobs` (different path from Getro)
+- Has structured salary: `{minValue, maxValue, currency}` in USD
+- `createdAt` is ISO string, `remote` is boolean, `locations` is array
 
 **Filtering — in this order:**
 
@@ -65,9 +78,20 @@ It runs every day at **8 AM IST** and results appear at **https://tracker.methun
 
 4. **Dedup** — URL exact match first (fastest), then company+title fuzzy match within 30-day window (catches same job relisted with a different URL)
 
-**Gemini extracts** (per job): location, salary, 3 key requirements bullets. Cover letter and email draft are **not** generated in the pipeline (would burn too much Gemini quota) — generated on-demand from dashboard.
+**Gemini extracts** (per job): `requirements_bullets` (3 bullets), `candidate_location`, and optionally `experience_match` / `remote_scope` when rule-based classification is ambiguous.
 
-**Contact finding** — same Apollo → Hunter chain as Track A. Skip contact search for `talentweb3` (it's a recruiter aggregator, company_name is the platform, not the hiring company).
+> **Key**: Before calling Gemini, the pipeline fetches the actual `job_url` page (3000 chars) using `fetch_website_text(url, max_chars=3000)`. This gives Gemini the real job posting instead of the partial/tag-only scraped `description_raw`. Falls back to `description_raw` if page fetch fails or returns less text.
+
+**`candidate_location`** — what Gemini extracts from the real job page:
+- Where the **candidate must be**, not the company HQ
+- Examples: `"Remote – worldwide"`, `"San Francisco, CA (onsite)"`, `"Remote – US only"`, `"Not specified"`
+- Stored as `description_summary.candidate_location` in the DB (JSON field)
+- Shown in jobs **table Location column** (replaces scraped value, falls back to scraped if null/"Not specified")
+- Shown as **amber card** at top of Requirements tab on job detail page
+
+Cover letter and email draft are **not** generated in the pipeline — generated on-demand via Chat tab in dashboard.
+
+**Contact finding** — same Apollo → Hunter chain as Track A. Skip contact search for `talentweb3` (recruiter aggregator).
 
 ---
 
@@ -82,15 +106,20 @@ job-pipeline/
 │   ├── apollo.py           ← Contact finding (primary)
 │   ├── hunter.py           ← Contact finding fallback + email finder + company enrichment
 │   ├── generator.py        ← Gemini AI content generation (dual-key fallback)
+│   │                          fetch_website_text(url, max_chars=1500) — accepts max_chars param
+│   │                          generate_job_content(..., job_page_text="") — uses full page if longer
 │   ├── fetchers/           ← Data sources (one file per source)
 │   │   ├── cryptorank_scraper.py       ← ONLY Track A source (don't break)
 │   │   ├── web3career.py               ← Scrapes /design-jobs (no API key needed)
 │   │   ├── cryptojobslist_rss.py
 │   │   ├── cryptocurrencyjobs_rss.py
-│   │   ├── dragonfly_jobs.py
-│   │   ├── arbitrum_jobs.py
+│   │   ├── dragonfly_jobs.py           ← Getro platform
+│   │   ├── arbitrum_jobs.py            ← Getro platform
 │   │   ├── hashtagweb3.py
-│   │   └── talentweb3.py
+│   │   ├── talentweb3.py
+│   │   ├── solana_jobs.py              ← Getro platform (added Mar 2026)
+│   │   ├── paradigm_jobs.py            ← paradigm.xyz/jobs (added Mar 2026)
+│   │   └── sui_jobs.py                 ← Getro platform (added Mar 2026)
 │   ├── dedup/              ← Duplicate detection logic
 │   ├── filters/            ← Experience + remote scope filtering
 │   └── enrichment/
@@ -102,18 +131,31 @@ job-pipeline/
 │   ├── app/
 │   │   ├── layout.tsx      ← Root layout with Sidebar
 │   │   ├── funded/page.tsx ← Funded companies table
-│   │   ├── jobs/page.tsx   ← Job postings table
+│   │   ├── jobs/page.tsx   ← Job postings table (10 sources, Location = Gemini candidate_location)
+│   │   ├── jobs/[id]/page.tsx  ← Job detail: Requirements tab + Chat tab
+│   │   │                          Requirements tab: amber card (candidate_location) + requirements bullets
 │   │   └── api/
-│   │       └── reveal-email/route.ts  ← Apollo → Hunter email reveal (server-side)
-│   └── components/
-│       ├── Sidebar.tsx
-│       ├── FundedCompanyCard.tsx
-│       └── JobPostingCard.tsx  ← Shows Globe + LinkedIn icons per company
+│   │       ├── reveal-email/route.ts       ← Apollo → Hunter email reveal (server-side)
+│   │       ├── generate-content/route.ts   ← On-demand: generate_summary extracts candidate_location
+│   │       └── chat/route.ts               ← Gemini streaming chat (GEMINI_API_KEY_CHAT)
+│   ├── components/
+│   │   ├── Sidebar.tsx
+│   │   ├── FundedCompanyCard.tsx
+│   │   ├── JobPostingCard.tsx   ← getDisplayLocation() reads candidate_location from description_summary
+│   │   ├── ChatPanel.tsx        ← Reusable chat UI, used in job detail tab
+│   │   └── CopyButton.tsx
+│   └── lib/
+│       ├── profile.ts       ← Master profile — feeds ALL Gemini outputs (pipeline + dashboard)
+│       ├── supabase.ts
+│       └── types.ts
+│
+├── scripts/
+│   └── backfill_candidate_location.py  ← One-off: adds candidate_location to existing DB records
 │
 ├── supabase/               ← DB migration SQL files
 ├── .env                    ← SECRET — never commit this
 ├── .env.example            ← Safe template (no real keys)
-└── requirements.txt        ← Python dependencies (includes exa-py)
+└── requirements.txt        ← Python dependencies (exa-py>=1.14.0,<2.0.0 — do NOT upgrade to 2.x)
 ```
 
 ---
@@ -127,19 +169,19 @@ All API keys live in `.env` locally and in GitHub Actions secrets. Never commit 
 ```python
 GEMINI_ENABLED = True   # ← currently True (dual-key fallback in place)
 ```
-If Gemini is disabled, AI-generated content (cover letters, email drafts, LinkedIn notes) is skipped — that's intentional. Don't remove the `if GEMINI_ENABLED:` guards.
+If Gemini is disabled, AI-generated content is skipped — that's intentional. Don't remove the `if GEMINI_ENABLED:` guards.
 
 ### 3. `cryptorank_scraper.py` is the ONLY Track A source
 RSS sources were removed because they need Gemini to parse. Do not add new RSS sources to Track A unless Gemini is enabled and tested.
 
 ### 4. Apollo API
-- People search (`/api/v1/mixed_people/api_search`): free, no credits. Note: free tier returns no results for many small companies — Hunter fallback handles this.
-- **Email reveal (`/v1/people/match`): costs 1 credit** — only called from the dashboard "Find Email" button, never from the pipeline
+- People search (`/api/v1/mixed_people/api_search`): free, no credits.
+- **Email reveal (`/v1/people/match`): costs 1 credit** — only called from dashboard "Find Email" button, never from the pipeline
 - Never call `apollo.reveal_email()` in bulk or in automated loops
 - The old endpoint `/v1/mixed_people/search` is deprecated (returns 422) — do not revert to it
 
 ### 5. Dedup logic is critical
-`pipeline/dedup/matcher.py` uses fuzzy matching (RapidFuzz, threshold=85) to avoid inserting the same company twice. Don't change the threshold without testing.
+`pipeline/dedup/matcher.py` uses fuzzy matching (RapidFuzz, threshold=85). Don't change the threshold without testing.
 
 ### 6. DB schema
 Never modify Supabase tables directly without a migration file in `supabase/migrations/`. The dashboard reads specific column names — renaming columns will break the UI.
@@ -148,6 +190,14 @@ Never modify Supabase tables directly without a migration file in `supabase/migr
 ```bash
 python3 -m pipeline.main   # use system python3, NOT venv (venv is py3.14 — incompatible)
 ```
+
+### 8. exa-py version pin
+```
+exa-py>=1.14.0,<2.0.0   # DO NOT upgrade to 2.x — requires openai, conflicts with google-genai
+```
+
+### 9. Track B query is locked
+Dashboard always filters `.eq("track", "B")` — never remove this filter.
 
 ---
 
@@ -168,14 +218,17 @@ main.py
   │       → db.insert_funded_lead()
   │
   ├── Track B:
-  │     7 fetchers (web3career, cryptojobslist, etc.)
+  │     10 fetchers (web3career, cryptojobslist, cryptocurrencyjobs,
+  │                  dragonfly, arbitrum, hashtagweb3, talentweb3,
+  │                  solana_jobs, paradigm, sui_jobs)
   │       → role keyword filter (must match design titles)
   │       → URL dedup
   │       → experience filter (skip 7+ year roles)
   │       → apollo.find_contact() → hunter.find_contact() fallback
   │       → exa_finder.find_company_linkedin() [Exa → Tavily → Hunter]
   │       → twitter_finder.find_twitter_handle() [Exa → Tavily → Brave]
-  │       → [Gemini content if enabled]
+  │       → fetch_website_text(job_url, max_chars=3000)  ← real job page
+  │       → Gemini: requirements_bullets + candidate_location (+ exp/remote if ambiguous)
   │       → db.insert_job_posting()
   │
   ├── Generate follow-ups for 7-day-old records (if Gemini enabled)
@@ -219,25 +272,58 @@ Exa key1 ──(quota error)──▶ Exa key2
    ↓ no email
 4. Exa — scan company website pages for email matching domain
 ```
-Note: Hunter domain-search (step in contact finding) often returns email directly at no cost — check `_hunter_email` before triggering reveal.
 
 ### Gemini content generation
 ```
 Gemini key1 ──(daily quota exhausted)──▶ Gemini key2
 ```
 
-> **Fallback philosophy**: Key rotation (key1→key2) happens on quota/errors only — same data, extra quota. Source fallback (Exa→Tavily→Brave) happens when the previous source finds nothing — different indexes, different coverage.
+> **Fallback philosophy**: Key rotation (key1→key2) happens on quota/errors — same data, extra quota. Source fallback (Exa→Tavily→Brave) happens when previous source finds nothing — different indexes, different coverage.
 
 ---
 
 ## Dashboard features
 
-- Fixed left sidebar: Funded Companies + Job Postings tabs
-- Filter by outreach/application status
-- Company column shows Globe (website) + LinkedIn icons — populated automatically by enrichment
-- Expand any row to see: message draft, cover letter, email draft, notes
-- "Find Email" button — uses Apollo credit first, falls back to Hunter
+### Jobs table (Track B)
+- Location column shows **Gemini `candidate_location`** (where candidate must be) — falls back to scraped `job.location` for old records without it
+- Filter by application/outreach status
+- Company column: Globe (website) + LinkedIn icons
+- Source labels: Web3.career, CryptoJobsList, Dragonfly, Arbitrum, #Web3, TalentWeb3, Solana Jobs, Paradigm, Sui Jobs
+
+### Job detail page (`/jobs/[id]`)
+- **Requirements tab**:
+  - Amber card at top: "Where You'd Need to Be" — Gemini's `candidate_location`
+  - Location + Salary cards (if present)
+  - 3 key requirements bullets
+  - "✨ Analyze Job Posting" button — triggers on-demand Gemini analysis (also extracts `candidate_location`)
+- **Chat tab**: Live Gemini chat with job context auto-injected. Supports image/PDF upload. Use this for cover letters, LinkedIn notes, email drafts.
+
+### Funded companies table (Track A)
+- Expand row: company summary, LinkedIn note, email draft, find email, notes
+
+### Shared
+- "Find Email" button — Apollo credit first, falls back to Hunter (4-step chain)
 - Twitter icon: blue = high confidence, yellow = unverified
+- Fixed left sidebar: Funded Companies + Job Postings tabs
+
+---
+
+## description_summary JSON schema
+
+Stored as JSON string in `job_postings.description_summary`. All fields optional/nullable:
+
+```json
+{
+  "location": "city or remote info from description",
+  "salary": "salary range string or null",
+  "requirements": ["bullet 1", "bullet 2", "bullet 3"],
+  "candidate_location": "Remote – worldwide | San Francisco, CA (onsite) | Not specified | ..."
+}
+```
+
+`candidate_location` is populated by both:
+- Pipeline (via `generate_job_content` with `job_page_text`)
+- On-demand dashboard button (`/api/generate-content` → `generate_summary` action)
 
 ---
 
@@ -273,6 +359,14 @@ Gemini key1 ──(daily quota exhausted)──▶ Gemini key2
 - `pipeline/enrichment/exa_finder.py` — Exa key pool logic, don't break rotation
 - `dashboard/app/funded/page.tsx` and `jobs/page.tsx` — these query Supabase directly
 - Any DB schema change — needs migration file + dashboard update together
+
+---
+
+## Deferred / future work
+
+- Gmail response tracking — monitor inbox, auto-update outreach status when replies come in
+- Re-add RSS sources to Track A (TechCrunch, EU Startups etc) when ready
+- Salary + visa sponsorship extraction in pipeline Gemini prompt (fields exist in DB, never populated by pipeline — only by on-demand dashboard button)
 
 ---
 
