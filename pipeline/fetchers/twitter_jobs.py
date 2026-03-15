@@ -140,9 +140,8 @@ def fetch(days_back: int = 7) -> list[dict]:
                 query,
                 type="neural",
                 num_results=25,
-                include_domains=["twitter.com", "x.com"],
+                category="tweet",
                 start_published_date=cutoff,
-                contents={"text": True},
             )
             print(f"[TwitterFetcher] Query '{query[:50]}...' → {len(results)} raw results")
         except Exception as e:
