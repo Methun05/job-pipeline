@@ -140,7 +140,7 @@ def fetch() -> list[dict]:
                 "raw_data":         {
                     "key":     key,
                     "symbol":  item.get("symbol"),
-                    "country": item.get("country"),
+                    "country": (lambda c: c.get("name") if isinstance(c, dict) else c)(item.get("country")),
                     "funds":   [f.get("name") for f in item.get("funds", [])],
                 },
             })

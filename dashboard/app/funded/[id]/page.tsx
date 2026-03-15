@@ -143,7 +143,8 @@ export default function FundedDetailPage() {
 
   const company     = lead.companies;
   const contact     = lead.contacts;
-  const companyType = lead.raw_data?.company_type;
+  const rawType = lead.raw_data?.company_type;
+  const companyType = typeof rawType === "string" ? rawType : (rawType as any)?.name ?? null;
   const funding     = lead.funding_amount ? `$${(lead.funding_amount / 1_000_000).toFixed(1)}M` : null;
   const twitterConf = contact?.twitter_confidence ?? null;
 
@@ -407,7 +408,9 @@ export default function FundedDetailPage() {
                   {lead.raw_data?.country && (
                     <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700">
                       <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1.5">Country</p>
-                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{lead.raw_data.country}</p>
+                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                        {typeof lead.raw_data.country === "string" ? lead.raw_data.country : (lead.raw_data.country as any)?.name}
+                      </p>
                     </div>
                   )}
 

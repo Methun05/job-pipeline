@@ -84,11 +84,7 @@ export function FundedCompanyMobileCard({ lead, onStatusChange }: { lead: Funded
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{company?.name || "—"}</span>
-            {lead.raw_data?.company_type && (
-              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${TYPE_COLORS[lead.raw_data.company_type] ?? "bg-zinc-100 text-zinc-500"}`}>
-                {lead.raw_data.company_type}
-              </span>
-            )}
+            {lead.raw_data?.company_type && (() => { const ct = typeof lead.raw_data.company_type === "string" ? lead.raw_data.company_type : (lead.raw_data.company_type as any)?.name; return ct ? <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${TYPE_COLORS[ct] ?? "bg-zinc-100 text-zinc-500"}`}>{ct}</span> : null; })()}
           </div>
           {company?.description && (
             <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 line-clamp-2 leading-snug">{company.description}</p>
@@ -166,11 +162,7 @@ export default function FundedCompanyRow({ lead, onStatusChange }: { lead: Funde
       <td className="px-4 py-4 min-w-[200px] max-w-[280px]">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{company?.name || "—"}</span>
-          {lead.raw_data?.company_type && (
-            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${TYPE_COLORS[lead.raw_data.company_type] ?? "bg-zinc-100 text-zinc-500"}`}>
-              {lead.raw_data.company_type}
-            </span>
-          )}
+          {lead.raw_data?.company_type && (() => { const ct = typeof lead.raw_data.company_type === "string" ? lead.raw_data.company_type : (lead.raw_data.company_type as any)?.name; return ct ? <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${TYPE_COLORS[ct] ?? "bg-zinc-100 text-zinc-500"}`}>{ct}</span> : null; })()}
         </div>
         {company?.description && (
           <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug line-clamp-2">{company.description}</p>
