@@ -1,6 +1,6 @@
 "use client";
 import { format } from "date-fns";
-import { ExternalLink, Globe, Linkedin, MessageSquare } from "lucide-react";
+import { ExternalLink, Globe, Linkedin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { JobPosting, AppStatus, OutreachStatus } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
@@ -173,13 +173,6 @@ export default function JobPostingRow({ job, onUpdate }: { job: JobPosting; onUp
         </a>
       </td>
 
-      {/* Chat */}
-      <td className="px-4 py-4">
-        <a href={`/chat?jobId=${job.id}`} onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors text-xs font-medium text-violet-600 dark:text-violet-400 whitespace-nowrap shadow-sm">
-          <MessageSquare className="w-3 h-3" /> Chat
-        </a>
-      </td>
 
     </tr>
   );

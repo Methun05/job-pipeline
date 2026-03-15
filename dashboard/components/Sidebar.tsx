@@ -1,12 +1,11 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Briefcase, MessageSquare, ChevronLeft, ChevronRight, Sun, Moon } from "lucide-react";
+import { Building2, Briefcase, ChevronLeft, ChevronRight, Sun, Moon } from "lucide-react";
 
 const NAV = [
-  { href: "/funded",  label: "Funded Companies", icon: Building2     },
-  { href: "/jobs",    label: "Job Postings",      icon: Briefcase     },
-  { href: "/chat",    label: "Chat",              icon: MessageSquare },
+  { href: "/funded", label: "Funded Companies", icon: Building2 },
+  { href: "/jobs",   label: "Job Postings",      icon: Briefcase },
 ];
 
 export default function Sidebar({
