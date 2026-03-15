@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowLeft, ExternalLink, Globe, Linkedin, Mail, Twitter, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import ChatPanel from "@/components/ChatPanel";
 import type { JobPosting, AppStatus, OutreachStatus } from "@/lib/types";
 import { Button, Textarea } from "@/components/ui";
 import CopyButton from "@/components/CopyButton";
@@ -430,14 +431,16 @@ export default function JobDetailPage() {
                 )
               )}
 
-              {/* Chat Tab (Placeholder) */}
+              {/* Chat Tab */}
               {activeTab === "chat" && (
-                <div className="flex flex-col h-full items-center justify-center text-center space-y-4 text-zinc-500">
-                  <div className="w-16 h-16 rounded-2xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-500 mb-2">
-                    <Sparkles className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">Interactive Chat</h3>
-                  <p className="text-sm max-w-sm">Chat with Gemini about this specific job. Coming soon!</p>
+                <div className="h-full flex flex-col" style={{ minHeight: "460px" }}>
+                  <ChatPanel
+                    jobContext={{
+                      title:       job.job_title,
+                      company:     company?.name ?? "",
+                      description: job.description_raw ?? undefined,
+                    }}
+                  />
                 </div>
               )}
 
