@@ -394,9 +394,9 @@ export default function FundedDetailPage() {
                     <div>
                       <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Investors</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {lead.raw_data.funds.map((fund, i) => (
+                        {lead.raw_data.funds.map((fund: any, i) => (
                           <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
-                            {fund}
+                            {typeof fund === "string" ? fund : fund.name}
                           </span>
                         ))}
                       </div>
