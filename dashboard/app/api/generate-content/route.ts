@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
+import { buildSystemPrompt, PROFILE } from "@/lib/profile";
 
 // Ensure the API key is available
 const apiKey = process.env.GEMINI_API_KEY;
@@ -25,16 +26,11 @@ export async function POST(req: Request) {
     }
 
     let prompt = "";
-    
-    // Hardcoded profile for now (matching Python pipeline)
-    const profile = `You are helping Methun, a Senior Product Designer with 4 years of experience.
-Specialization: Web3, Crypto, DeFi, SaaS Platforms
-Skills: Figma, Prototyping, Design Systems, UX Research
-Background: Previously shipped trading interfaces and wallet experiences.
-Portfolio: methun.design
-Tone: Confident, professional, slightly casual but not overly formal.`;
 
-    const jobContext = `Job: ${jobTitle} at ${companyName}
+    const profile = buildSystemPrompt();
+
+    const jobContext = `## Job you are writing for
+Role: ${jobTitle} at ${companyName}
 ${contactName ? `Contact: ${contactName} (${contactTitle || "Hiring Manager"})` : ""}
 ${requirements ? `Key Requirements:\n${requirements}` : ""}
 Job Description:
@@ -53,7 +49,7 @@ Task: Write a cover letter (3-4 paragraphs).
 - Paragraph 3: why this specific role interests me. 
 - Closing paragraph with a soft ask.
 - Keep it specific to this role, not a generic template.
-- Do NOT include placeholder brackets like [Your Name], use the real profile information (Methun).
+- Do NOT include placeholder brackets like [Your Name] — use the real name: ${PROFILE.name}.
 
 Return ONLY the cover letter text, no markdown code blocks, no intro/outro conversational text.`;
         break;
