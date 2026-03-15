@@ -113,8 +113,8 @@ def _normalize_result(result) -> dict | None:
 # ── Exa search queries ────────────────────────────────────────────────────────
 
 SEARCH_QUERIES = [
-    'hiring "product designer" (crypto OR web3 OR defi)',
-    '"looking for" designer (web3 OR crypto)',
+    "crypto web3 startup hiring product designer UX designer open role",
+    "we are hiring designer defi blockchain crypto team join us",
 ]
 
 
