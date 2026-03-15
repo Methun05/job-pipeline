@@ -188,26 +188,31 @@ export default function JobDetailPage() {
         <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" /> Back to Jobs
       </button>
 
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 mb-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{job.job_title}</h1>
-          <div className="flex items-center gap-3 mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-            <span className="font-medium text-zinc-900 dark:text-zinc-200">{company?.name || "Unknown Company"}</span>
-            {job.location && <span>&bull; {job.location}</span>}
-            <span>&bull; {format(new Date(job.posted_at || job.created_at), "MMM d, yyyy")}</span>
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 md:p-6 mb-6 shadow-sm">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-2xl font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{job.job_title}</h1>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-sm text-zinc-600 dark:text-zinc-400">
+              <span className="font-medium text-zinc-900 dark:text-zinc-200">{company?.name || "Unknown Company"}</span>
+              {job.location && <><span className="text-zinc-300 dark:text-zinc-600">·</span><span>{job.location}</span></>}
+              <span className="text-zinc-300 dark:text-zinc-600">·</span>
+              <span>{format(new Date(job.posted_at || job.created_at), "MMM d, yyyy")}</span>
+            </div>
           </div>
+          {/* View Job — always visible, top right on mobile */}
+          <a href={job.job_url} target="_blank" rel="noopener noreferrer"
+            className="self-start flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-lg font-medium text-sm hover:opacity-90 transition-opacity whitespace-nowrap shrink-0">
+            <ExternalLink className="w-3.5 h-3.5" /> View Job
+          </a>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <select value={job.application_status} onChange={e => updateApp(e.target.value as AppStatus)} className={`${selectClass} ${getColor(APP_OPTIONS, job.application_status)}`}>
+        {/* Status dropdowns — full width row on mobile */}
+        <div className="flex flex-wrap gap-2 mt-3">
+          <select value={job.application_status} onChange={e => updateApp(e.target.value as AppStatus)} className={`flex-1 min-w-[120px] ${selectClass} ${getColor(APP_OPTIONS, job.application_status)}`}>
             {APP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          <select value={job.outreach_status} onChange={e => updateOutreach(e.target.value as OutreachStatus)} className={`${selectClass} ${getColor(OUTREACH_OPTIONS, job.outreach_status)}`}>
+          <select value={job.outreach_status} onChange={e => updateOutreach(e.target.value as OutreachStatus)} className={`flex-1 min-w-[120px] ${selectClass} ${getColor(OUTREACH_OPTIONS, job.outreach_status)}`}>
             {OUTREACH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          <a href={job.job_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-md font-medium text-sm hover:opacity-90 transition-opacity whitespace-nowrap">
-            <ExternalLink className="w-4 h-4" /> View Job
-          </a>
         </div>
       </div>
 
@@ -235,14 +240,14 @@ export default function JobDetailPage() {
                     <div className="flex gap-2 mt-3">
                       {websiteUrl && (
                         <a href={websiteUrl} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                          <Globe className="w-3.5 h-3.5" /> Website
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm">
+                          <Globe className="w-4 h-4" /> Website
                         </a>
                       )}
                       {company.linkedin_url && (
                         <a href={company.linkedin_url} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                          <Linkedin className="w-3.5 h-3.5" /> LinkedIn
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm">
+                          <Linkedin className="w-4 h-4" /> LinkedIn
                         </a>
                       )}
                     </div>
@@ -324,7 +329,10 @@ export default function JobDetailPage() {
           <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden h-full flex flex-col min-h-[600px]">
             
             {/* Tabs */}
-            <div className="flex border-b border-zinc-200 dark:border-zinc-800 overflow-x-auto hide-scrollbar bg-zinc-50/50 dark:bg-zinc-900/50">
+            <div className="relative border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+              {/* Fade hint — shows more tabs exist on mobile */}
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-zinc-50 dark:from-zinc-900 to-transparent z-10 md:hidden" />
+            <div className="flex overflow-x-auto hide-scrollbar">
               {[
                 { id: "summary", label: "Requirements" },
                 { id: "cover_letter", label: "Cover Letter" },
@@ -344,6 +352,7 @@ export default function JobDetailPage() {
                   {tab.label}
                 </button>
               ))}
+            </div>
             </div>
 
             {/* Tab Content */}

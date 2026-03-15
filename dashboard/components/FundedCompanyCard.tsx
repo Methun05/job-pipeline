@@ -236,7 +236,7 @@ export function FundedCompanyMobileCard({ lead, onStatusChange }: { lead: Funded
     ? `https://cryptorank.io/ico/${lead.raw_data.key}` : null);
 
   return (
-    <div className="border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
+    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-300 dark:border-zinc-800 shadow-sm p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
