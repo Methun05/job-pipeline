@@ -243,6 +243,61 @@ Return only the JSON object, no other text."""
     return _call_gemini(prompt)
 
 
+# ── Twitter lead classification ───────────────────────────────────────────────
+
+def classify_tweet(tweet_text: str, poster_bio: str, poster_name: str) -> dict:
+    """
+    Classify a tweet as a job lead for a crypto/web3 Product Designer.
+
+    Returns:
+      {
+        is_job: bool,
+        confidence: float (0.0–1.0),
+        role: str | null,
+        company_name: str | null,
+        poster_type: "founder" | "company" | "unknown"
+      }
+
+    Only save leads where confidence > 0.75.
+    """
+    prompt = f"""You are helping filter job leads for a Product Designer looking for crypto/web3 roles.
+
+Tweet text:
+{tweet_text[:800]}
+
+Poster name: {poster_name or "unknown"}
+Poster bio:  {poster_bio or "not available"}
+
+Determine if this tweet is a DIRECT job opening for a Product Designer / UX Designer role at a crypto, web3, DeFi, or blockchain company.
+
+Rules:
+- is_job must be true ONLY if the tweet is directly advertising a specific open position (not just a reshare, not a general "we're hiring" with no role, not a job board listing)
+- confidence reflects how certain you are it's a real direct lead
+- poster_type: "founder" if the person seems to be a founder/CEO/CTO; "company" if it's a company account; "unknown" otherwise
+- role: extract the role title if mentioned (e.g. "Product Designer", "UX Lead"), null if unclear
+- company_name: extract company name if mentioned, null if unclear
+
+Return only this JSON object:
+{{
+  "is_job": true or false,
+  "confidence": 0.0 to 1.0,
+  "role": "role title or null",
+  "company_name": "company name or null",
+  "poster_type": "founder" or "company" or "unknown"
+}}"""
+
+    try:
+        return _call_gemini(prompt)
+    except Exception:
+        return {
+            "is_job": False,
+            "confidence": 0.0,
+            "role": None,
+            "company_name": None,
+            "poster_type": "unknown",
+        }
+
+
 # ── Follow-up message generation ───────────────────────────────────────────────
 
 def generate_followup(

@@ -1,0 +1,37 @@
+name: Twitter Job Lead Pipeline
+
+on:
+  # Manual trigger only — run and verify before considering a schedule
+  workflow_dispatch:
+
+jobs:
+  run-twitter-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Twitter pipeline
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2:     ${{ secrets.GEMINI_API_KEY_2 }}
+          EXA_API_KEY:          ${{ secrets.EXA_API_KEY }}
+          EXA_API_KEY_2:        ${{ secrets.EXA_API_KEY_2 }}
+        run: python3 scripts/twitter_pipeline.py
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "Twitter pipeline failed. Check Actions logs above."
