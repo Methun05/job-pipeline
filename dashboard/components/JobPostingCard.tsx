@@ -14,6 +14,8 @@ const SOURCE_LABELS: Record<string, string> = {
   hashtagweb3:        "#Web3",
   talentweb3:         "TalentWeb3",
   solana_jobs:        "Solana Jobs",
+  paradigm:           "Paradigm",
+  sui_jobs:           "Sui Jobs",
 };
 
 function getDisplayLocation(job: JobPosting): string {
