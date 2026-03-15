@@ -299,7 +299,10 @@ Gemini key1 ──(daily quota exhausted)──▶ Gemini key2
 - **Chat tab**: Live Gemini chat with job context auto-injected. Supports image/PDF upload. Use this for cover letters, LinkedIn notes, email drafts.
 
 ### Funded companies table (Track A)
-- Expand row: company summary, LinkedIn note, email draft, find email, notes
+- Click row → navigates to `/funded/[id]` detail page
+- Detail page: Company Overview tab (type, funding, investors, country) + Chat tab
+- Company description intentionally removed from the table (visible in overview tab)
+- Find Email button on detail page (Apollo → Hunter 4-step chain)
 
 ### Shared
 - "Find Email" button — Apollo credit first, falls back to Hunter (4-step chain)
@@ -359,6 +362,27 @@ Stored as JSON string in `job_postings.description_summary`. All fields optional
 - `pipeline/enrichment/exa_finder.py` — Exa key pool logic, don't break rotation
 - `dashboard/app/funded/page.tsx` and `jobs/page.tsx` — these query Supabase directly
 - Any DB schema change — needs migration file + dashboard update together
+
+---
+
+## Known bugs fixed (Mar 15 2026)
+
+### React error #31 on funded company detail page (`/funded/[id]`)
+**Symptom:** Clicking any company card in Track A crashed with "Objects are not valid as a React child (found: object with keys {key, name})".
+
+**Root cause:** CryptoRank's API returns several fields as objects, not plain strings. Old records in Supabase stored these raw objects:
+- `raw_data.funds` → stored as `[{key: "a16z", name: "Andreessen Horowitz"}, ...]` (not `["Andreessen Horowitz", ...]`)
+- `raw_data.country` → stored as `{key: "us", name: "United States"}` (not `"United States"`)
+- `raw_data.company_type` → added defensive guard (Gemini sets this as a string, but guard prevents future regressions)
+
+**Fix:**
+1. `dashboard/app/funded/[id]/page.tsx` — `funds` rendering uses `typeof fund === "string" ? fund : fund.name`. `country` rendering uses same pattern. `companyType` extracted defensively.
+2. `dashboard/components/FundedCompanyCard.tsx` — `company_type` rendering in both mobile card + desktop row guarded against object values.
+3. `pipeline/fetchers/cryptorank_scraper.py` — `country` now extracted as `c.get("name") if isinstance(c, dict) else c` so future records store plain strings.
+
+**Lesson:** When scraping CryptoRank's `__NEXT_DATA__`, assume any field can be a `{key, name}` object. Always extract `.get("name")` defensively for string fields.
+
+**Mistake in first fix attempt:** Only fixed `funds`, missed `country`. Second deploy still crashed because `raw_data.country` was also an object for old records. Always audit ALL `raw_data` field renders together.
 
 ---
 
