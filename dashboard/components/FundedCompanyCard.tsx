@@ -86,9 +86,6 @@ export function FundedCompanyMobileCard({ lead, onStatusChange }: { lead: Funded
             <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{company?.name || "—"}</span>
             {lead.raw_data?.company_type && (() => { const ct = typeof lead.raw_data.company_type === "string" ? lead.raw_data.company_type : (lead.raw_data.company_type as any)?.name; return ct ? <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${TYPE_COLORS[ct] ?? "bg-zinc-100 text-zinc-500"}`}>{ct}</span> : null; })()}
           </div>
-          {company?.description && (
-            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 line-clamp-2 leading-snug">{company.description}</p>
-          )}
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{funding}</span>
             {lead.round_type && <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{lead.round_type}</span>}
@@ -164,9 +161,6 @@ export default function FundedCompanyRow({ lead, onStatusChange }: { lead: Funde
           <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{company?.name || "—"}</span>
           {lead.raw_data?.company_type && (() => { const ct = typeof lead.raw_data.company_type === "string" ? lead.raw_data.company_type : (lead.raw_data.company_type as any)?.name; return ct ? <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${TYPE_COLORS[ct] ?? "bg-zinc-100 text-zinc-500"}`}>{ct}</span> : null; })()}
         </div>
-        {company?.description && (
-          <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug line-clamp-2">{company.description}</p>
-        )}
         <div className="text-[11px] text-zinc-300 dark:text-zinc-600 mt-0.5">{SOURCE_LABELS[lead.source] || lead.source}</div>
       </td>
 
