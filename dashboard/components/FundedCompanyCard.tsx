@@ -7,6 +7,14 @@ import CopyButton from "./CopyButton";
 import type { FundedLead, FundedStatus } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 
+const TYPE_COLORS: Record<string, string> = {
+  "Consumer App":       "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  "DeFi / Protocol":    "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
+  "B2B Tooling":        "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+  "Infrastructure":     "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  "Exchange / Trading": "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+};
+
 export const SOURCE_LABELS: Record<string, string> = {
   cryptorank:    "CryptoRank",
   techcrunch:    "TechCrunch",
@@ -242,7 +250,15 @@ export function FundedCompanyMobileCard({ lead, onStatusChange }: { lead: Funded
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{company?.name || "—"}</span>
             {isFollowUp && <span className="text-amber-600 dark:text-amber-400 text-[10px]">Follow-up</span>}
+            {lead.raw_data?.company_type && (
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${TYPE_COLORS[lead.raw_data.company_type] ?? "bg-zinc-100 text-zinc-500"}`}>
+                {lead.raw_data.company_type}
+              </span>
+            )}
           </div>
+          {company?.description && (
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 leading-snug line-clamp-2">{company.description}</p>
+          )}
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{funding}</span>
             {lead.round_type && <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{lead.round_type}</span>}
@@ -316,9 +332,19 @@ export default function FundedCompanyRow({ lead, onStatusChange }: { lead: Funde
   return (
     <>
       <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
-        <td className="px-4 py-4 min-w-[170px]">
-          <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{company?.name || "—"}</div>
-          <div className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+        <td className="px-4 py-4 min-w-[200px] max-w-[280px]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{company?.name || "—"}</span>
+            {lead.raw_data?.company_type && (
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${TYPE_COLORS[lead.raw_data.company_type] ?? "bg-zinc-100 text-zinc-500"}`}>
+                {lead.raw_data.company_type}
+              </span>
+            )}
+          </div>
+          {company?.description && (
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug line-clamp-2">{company.description}</p>
+          )}
+          <div className="text-[11px] text-zinc-300 dark:text-zinc-600 mt-0.5">
             {SOURCE_LABELS[lead.source] || lead.source}
             {isFollowUp && <span className="text-amber-600 dark:text-amber-400 ml-1">· Follow-up</span>}
           </div>

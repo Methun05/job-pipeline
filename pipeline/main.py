@@ -199,6 +199,7 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
     linkedin_note = None
     email_draft   = None
     description   = None
+    company_type  = None
     if GEMINI_ENABLED:
         try:
             result = gen.generate_funded_company_content(
@@ -208,6 +209,7 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
                 round_type      = round_type,
             )
             description   = result.get("summary")
+            company_type  = result.get("company_type")
             linkedin_note = result.get("linkedin_note")
             email_draft   = (
                 f"Subject: {result.get('email_subject', '')}\n\n"
@@ -216,6 +218,11 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
             db.upsert_company({"name": name, "domain": domain, "description": description})
         except Exception as e:
             stats.add_error("gemini_track_a", str(e))
+
+    # Merge company_type into raw_data (no extra DB column needed)
+    raw_data = dict(company_data.get("raw_data") or {})
+    if company_type:
+        raw_data["company_type"] = company_type
 
     # Save funded lead
     db.insert_funded_lead({
@@ -228,7 +235,7 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
         "announced_date":   company_data.get("announced_date") or company_data.get("published_date"),
         "linkedin_note":    linkedin_note,
         "email_draft":      email_draft,
-        "raw_data":         company_data.get("raw_data"),
+        "raw_data":         raw_data,
     })
     stats.track_a_new += 1
     print(f"[Track A] Saved: {name} ({round_type})")

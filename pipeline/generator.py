@@ -117,8 +117,8 @@ def generate_funded_company_content(
     funding_amount: float,
     round_type: str,
 ) -> dict:
-    """Returns: {summary, linkedin_note, email_subject, email_body}"""
-    website_text = fetch_website_text(website)
+    """Returns: {summary, company_type, linkedin_note, email_subject, email_body}"""
+    website_text = fetch_website_text(website, max_chars=3000)
     has_website  = bool(website_text)
 
     p = PROFILE
@@ -134,6 +134,7 @@ Funding: {round_type}, ${funding_amount:,.0f}
 Generate a JSON response with these exact keys:
 {{
   "summary": "2-3 sentence description of what this company does and who they serve. If website unavailable, write 'Summary not available — website could not be fetched.' ",
+  "company_type": "One of exactly: 'Consumer App', 'DeFi / Protocol', 'B2B Tooling', 'Infrastructure', 'Exchange / Trading'. Pick the best fit based on what the company builds.",
   "linkedin_note": "LinkedIn connection request message. Under 300 characters. Reference the funding round AND something specific about the company. From {p['name']}'s perspective as a designer. Not desperate. Confident and specific.",
   "email_subject": "Short, specific email subject line (under 60 chars)",
   "email_body": "3-4 sentence email. Opens with specific insight about company. Mentions designer background + crypto/DeFi experience. Ends with soft ask. Not generic."
