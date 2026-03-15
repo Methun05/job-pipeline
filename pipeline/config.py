@@ -39,7 +39,6 @@ PROFILE = {
 # ── Pipeline constants ─────────────────────────────────────────────────────────
 TRACK_A_DAYS_WINDOW     = 45     # funded within last N days
 TRACK_B_HOURS_WINDOW    = 72     # posted within last N hours
-TRACK_C_HOURS_WINDOW    = 72     # posted within last N hours (same cadence as Track B)
 FOLLOW_UP_DAYS          = 7      # generate follow-up after N days of inaction
 DEDUP_FUZZY_THRESHOLD   = 85     # RapidFuzz token_set_ratio threshold
 NINETY_DAY_RESET        = 90     # re-contact after N days

@@ -40,6 +40,7 @@ export default function JobsPage() {
       supabase
         .from("job_postings")
         .select("*, companies(*), contacts(*)")
+        .eq("track", "B")
         .order("posted_at", { ascending: false })
         .limit(300),
       supabase
