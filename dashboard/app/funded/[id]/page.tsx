@@ -8,6 +8,7 @@ import ChatPanel from "@/components/ChatPanel";
 import type { FundedLead, FundedStatus } from "@/lib/types";
 import { Button, Textarea } from "@/components/ui";
 import CopyButton from "@/components/CopyButton";
+import { SOURCE_LABELS } from "@/components/FundedCompanyCard";
 
 const TYPE_COLORS: Record<string, string> = {
   "Consumer App":       "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
@@ -15,6 +16,15 @@ const TYPE_COLORS: Record<string, string> = {
   "B2B Tooling":        "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
   "Infrastructure":     "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   "Exchange / Trading": "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+};
+
+// Descriptions for each company category
+const TYPE_DESCRIPTIONS: Record<string, string> = {
+  "Consumer App":       "User-facing product targeting retail or everyday consumers.",
+  "DeFi / Protocol":    "Decentralized finance or on-chain protocol infrastructure.",
+  "B2B Tooling":        "Software or services sold to other businesses.",
+  "Infrastructure":     "Core layer technology — nodes, RPCs, data, security.",
+  "Exchange / Trading": "Crypto exchange, DEX, or trading platform.",
 };
 
 const OUTREACH_OPTIONS = [
@@ -53,6 +63,7 @@ export default function FundedDetailPage() {
 
   const [lead, setLead]       = useState<FundedLead | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"overview" | "chat">("overview");
   const [notes, setNotes]     = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
@@ -140,7 +151,6 @@ export default function FundedDetailPage() {
     ? (company.website.startsWith("http") ? company.website : "https://" + company.website)
     : company?.domain ? "https://" + company.domain : null;
 
-  // Build chat context
   const chatContext = {
     title:       `Outreach — ${company?.name ?? "this company"}`,
     company:     company?.name ?? "",
@@ -177,6 +187,10 @@ export default function FundedDetailPage() {
                 <><span className="text-zinc-300 dark:text-zinc-600">·</span>
                 <span>{format(new Date(lead.announced_date + "T00:00:00"), "MMM d, yyyy")}</span></>
               )}
+              {lead.source && (
+                <><span className="text-zinc-300 dark:text-zinc-600">·</span>
+                <span className="text-zinc-400 dark:text-zinc-500">{SOURCE_LABELS[lead.source] || lead.source}</span></>
+              )}
             </div>
           </div>
         </div>
@@ -206,90 +220,85 @@ export default function FundedDetailPage() {
         <div className="lg:col-span-4 space-y-6">
 
           {/* Company + Contact Card */}
-          {(company || contact) && (
-            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-              {company && (
-                <div className={`px-5 py-4 ${contact ? "border-b border-zinc-100 dark:border-zinc-800" : ""}`}>
-                  <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2">Company</p>
-                  <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{company.name}</p>
-                  {(company.domain || company.website) && (
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-                      {company.domain || company.website?.replace(/^https?:\/\//, "")}
-                    </p>
-                  )}
-                  {company.description && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed">{company.description}</p>
-                  )}
-                  {(websiteUrl || company.linkedin_url) && (
-                    <div className="flex gap-2 mt-3">
-                      {websiteUrl && (
-                        <a href={websiteUrl} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm">
-                          <Globe className="w-4 h-4" /> Website
-                        </a>
-                      )}
-                      {company.linkedin_url && (
-                        <a href={company.linkedin_url} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm">
-                          <Linkedin className="w-4 h-4" /> LinkedIn
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+            {company && (
+              <div className={`px-5 py-4 ${contact ? "border-b border-zinc-100 dark:border-zinc-800" : ""}`}>
+                <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2">Company</p>
+                <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">{company.name}</p>
+                {(company.domain || company.website) && (
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                    {company.domain || company.website?.replace(/^https?:\/\//, "")}
+                  </p>
+                )}
+                {(websiteUrl || company.linkedin_url) && (
+                  <div className="flex gap-2 mt-3">
+                    {websiteUrl && (
+                      <a href={websiteUrl} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm">
+                        <Globe className="w-4 h-4" /> Website
+                      </a>
+                    )}
+                    {company.linkedin_url && (
+                      <a href={company.linkedin_url} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm">
+                        <Linkedin className="w-4 h-4" /> LinkedIn
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
-              {contact && (
-                <div className="px-5 py-4">
-                  <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Founder / Contact</p>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 font-semibold text-sm shrink-0">
-                      {contact.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{contact.name}</p>
-                      {contact.title && <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{contact.title}</p>}
-                    </div>
+            {contact && (
+              <div className="px-5 py-4">
+                <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Founder / Contact</p>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 font-semibold text-sm shrink-0">
+                    {contact.name.charAt(0)}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {contact.linkedin_url && (
-                      <a href={contact.linkedin_url} target="_blank" rel="noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                        <Linkedin className="w-3.5 h-3.5" /> LinkedIn
-                      </a>
-                    )}
-                    {contact.twitter_url && (
-                      <a href={contact.twitter_url} target="_blank" rel="noreferrer"
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                          twitterConf === "high"
-                            ? "border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                            : "border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                        }`}>
-                        <Twitter className="w-3.5 h-3.5" />
-                        {twitterConf !== "high" && <span className="text-[10px]">unverified</span>}
-                      </a>
-                    )}
-                  </div>
-                  <div className="mt-3">
-                    {contact.email ? (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-                        <Mail className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 truncate">{contact.email}</span>
-                        <CopyButton text={contact.email} label="" />
-                      </div>
-                    ) : (
-                      <button onClick={findEmail} disabled={emailLoading}
-                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors disabled:opacity-50">
-                        <Mail className="w-3.5 h-3.5" />
-                        {emailLoading ? "Finding email…" : "Find Email"}
-                      </button>
-                    )}
-                    {emailError && <p className="mt-1.5 text-[11px] text-red-500 dark:text-red-400">{emailError}</p>}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{contact.name}</p>
+                    {contact.title && <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{contact.title}</p>}
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+                <div className="flex flex-wrap gap-2">
+                  {contact.linkedin_url && (
+                    <a href={contact.linkedin_url} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                      <Linkedin className="w-3.5 h-3.5" /> LinkedIn
+                    </a>
+                  )}
+                  {contact.twitter_url && (
+                    <a href={contact.twitter_url} target="_blank" rel="noreferrer"
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                        twitterConf === "high"
+                          ? "border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                          : "border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                      }`}>
+                      <Twitter className="w-3.5 h-3.5" />
+                      {twitterConf !== "high" && <span className="text-[10px] ml-1">unverified</span>}
+                    </a>
+                  )}
+                </div>
+                <div className="mt-3">
+                  {contact.email ? (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                      <Mail className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 truncate">{contact.email}</span>
+                      <CopyButton text={contact.email} label="" />
+                    </div>
+                  ) : (
+                    <button onClick={findEmail} disabled={emailLoading}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors disabled:opacity-50">
+                      <Mail className="w-3.5 h-3.5" />
+                      {emailLoading ? "Finding email…" : "Find Email"}
+                    </button>
+                  )}
+                  {emailError && <p className="mt-1.5 text-[11px] text-red-500 dark:text-red-400">{emailError}</p>}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Notes */}
           <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
@@ -302,23 +311,115 @@ export default function FundedDetailPage() {
 
         </div>
 
-        {/* Right Column: Chat */}
+        {/* Right Column */}
         <div className="lg:col-span-8">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden h-full flex flex-col min-h-[600px]">
 
-            {/* Tab header */}
+            {/* Tabs */}
             <div className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
               <div className="flex">
-                <div className="px-5 py-3.5 text-sm font-medium border-b-2 border-violet-500 text-violet-600 dark:text-violet-400 bg-white dark:bg-zinc-800/50 shadow-sm">
-                  💬 Chat
-                </div>
+                {[
+                  { id: "overview", label: "Company Overview" },
+                  { id: "chat",     label: "💬 Chat" },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                      activeTab === tab.id
+                        ? "border-violet-500 text-violet-600 dark:text-violet-400 bg-white dark:bg-zinc-800/50 shadow-sm"
+                        : "border-transparent text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/20"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="p-6 flex-1 flex flex-col min-h-0">
-              <ChatPanel jobContext={chatContext} />
-            </div>
+            {/* Tab Content */}
+            <div className="p-6 flex-1 overflow-y-auto">
 
+              {/* Overview Tab */}
+              {activeTab === "overview" && (
+                <div className="space-y-5">
+
+                  {/* Company type — top decision card (mirrors "Where You'd Need to Be") */}
+                  {companyType && (
+                    <div className={`rounded-xl p-4 border ${
+                      companyType === "Consumer App"       ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800" :
+                      companyType === "DeFi / Protocol"    ? "bg-violet-50 border-violet-200 dark:bg-violet-900/20 dark:border-violet-800" :
+                      companyType === "Infrastructure"     ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800" :
+                      companyType === "Exchange / Trading" ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800" :
+                      "bg-zinc-50 border-zinc-200 dark:bg-zinc-800/40 dark:border-zinc-700"
+                    }`}>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 text-zinc-500 dark:text-zinc-400">Company Category</p>
+                      <p className={`text-sm font-semibold ${TYPE_COLORS[companyType]?.split(" ").slice(1).join(" ") ?? "text-zinc-700 dark:text-zinc-200"}`}>
+                        {companyType}
+                      </p>
+                      {TYPE_DESCRIPTIONS[companyType] && (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{TYPE_DESCRIPTIONS[companyType]}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Funding details */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700">
+                      <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1.5">Funding Raised</p>
+                      <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{funding ?? "Undisclosed"}</p>
+                      {lead.round_type && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{lead.round_type}</p>}
+                    </div>
+                    <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700">
+                      <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1.5">Announced</p>
+                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                        {lead.announced_date
+                          ? format(new Date(lead.announced_date + "T00:00:00"), "MMM d, yyyy")
+                          : "—"}
+                      </p>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">{SOURCE_LABELS[lead.source] || lead.source}</p>
+                    </div>
+                  </div>
+
+                  {/* Company description */}
+                  {company?.description && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">About the Company</p>
+                      <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{company.description}</p>
+                    </div>
+                  )}
+
+                  {/* Funds / investors if available */}
+                  {lead.raw_data?.funds && lead.raw_data.funds.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Investors</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {lead.raw_data.funds.map((fund, i) => (
+                          <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                            {fund}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Country if available */}
+                  {lead.raw_data?.country && (
+                    <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700">
+                      <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1.5">Country</p>
+                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{lead.raw_data.country}</p>
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+              {/* Chat Tab — always mounted to preserve history */}
+              <div className={`h-full flex flex-col ${activeTab === "chat" ? "" : "hidden"}`} style={{ minHeight: "460px" }}>
+                <ChatPanel jobContext={chatContext} />
+              </div>
+
+            </div>
           </div>
         </div>
 
