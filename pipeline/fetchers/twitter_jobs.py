@@ -10,7 +10,8 @@ Returns list of normalized lead dicts ready for Gemini classification.
 import re
 import time
 from datetime import datetime, timezone, timedelta
-from pipeline.enrichment.exa_finder import _exa_search, _get_clients
+from pipeline.enrichment.exa_finder import _get_clients
+from pipeline.config import EXA_API_KEY, EXA_API_KEY_2
 
 # Job board domains — tweets linking to these are just reshares, not direct leads
 JOB_BOARD_DOMAINS = {
@@ -20,10 +21,12 @@ JOB_BOARD_DOMAINS = {
     "linkedin.com/jobs", "indeed.com", "glassdoor.com",
 }
 
-# Accounts whose tweet URLs we don't want (job boards posting on Twitter)
+# Accounts whose tweet URLs we don't want (job boards / aggregator bots)
 JOB_BOARD_HANDLES = {
     "web3career", "cryptojobslist", "cryptocurrencyjobs", "web3jobs",
-    "blockchainjobs", "defi_jobs", "nft_jobs",
+    "blockchainjobs", "defi_jobs", "nft_jobs", "web3hiresxyz",
+    "jobmeterapp", "jobsincrypto", "definitiveweb3", "crypto_vazima",
+    "allthatmatters_", "web3jobboard", "cryptohire", "blockchainhire",
 }
 
 _RETWEET_RE   = re.compile(r'^RT @', re.IGNORECASE)
@@ -129,31 +132,29 @@ def fetch(days_back: int = 7) -> list[dict]:
         print("[TwitterFetcher] No Exa API keys configured — skipping")
         return []
 
-    import exa_py
-    print(f"[TwitterFetcher] exa-py version: {getattr(exa_py, '__version__', 'unknown')}")
-
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    print(f"[TwitterFetcher] Date cutoff: {cutoff}")
 
     seen_urls: set[str] = set()
     leads: list[dict]   = []
 
+    from exa_py import Exa
+    exa = Exa(api_key=EXA_API_KEY)
+
     for query in SEARCH_QUERIES:
-        # Try with date filter first, fall back to no date filter if 0 results
-        for attempt, kwargs in enumerate([
-            {"type": "neural", "num_results": 25, "category": "tweet", "start_published_date": cutoff},
-            {"type": "neural", "num_results": 25, "category": "tweet"},
-            {"type": "neural", "num_results": 25},
-        ]):
-            try:
-                results = _exa_search(query, **kwargs)
-                print(f"[TwitterFetcher] Query '{query[:50]}...' attempt={attempt} kwargs={list(kwargs.keys())} → {len(results)} raw results")
-                if results:
-                    break  # got results, use these
-            except Exception as e:
-                print(f"[TwitterFetcher] Exa search failed attempt={attempt}: {e}")
-                results = []
-                continue
+        try:
+            response = exa.search_and_contents(
+                query,
+                type="neural",
+                num_results=25,
+                category="tweet",
+                start_published_date=cutoff,
+                text={"max_characters": 500},
+            )
+            results = response.results
+            print(f"[TwitterFetcher] Query '{query[:50]}...' → {len(results)} raw results")
+        except Exception as e:
+            print(f"[TwitterFetcher] Exa search failed: {e}")
+            results = []
 
         for r in results:
             url = r.url or ""
