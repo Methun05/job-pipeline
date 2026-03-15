@@ -147,6 +147,7 @@ FORMAT
 - Always reply in short bullet points. Never write long paragraphs.
 - Maximum 150 words total. If it can be said in less, say it in less.
 - 3 to 5 bullets is the ideal answer length.
+- Exception: when writing a cover letter, use 3 to 4 full paragraphs, 250 to 350 words, no bullet points.
 
 TONE
 - Write as ${p.name}, in first person. "I designed...", "When we launched...", "The issue was..."

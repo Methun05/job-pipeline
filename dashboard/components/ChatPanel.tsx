@@ -54,7 +54,7 @@ const ACCEPTED = "image/png,image/jpeg,image/webp,image/gif,application/pdf";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function ChatPanel({ jobContext }: { jobContext?: JobContext }) {
+export default function ChatPanel({ jobContext, initialMessage }: { jobContext?: JobContext; initialMessage?: string }) {
   const [messages, setMessages]         = useState<Message[]>([]);
   const [input, setInput]               = useState("");
   const [pendingFiles, setPendingFiles] = useState<FilePart[]>([]);
@@ -76,6 +76,12 @@ export default function ChatPanel({ jobContext }: { jobContext?: JobContext }) {
     }
   }, [input]);
 
+  // Auto-send initialMessage once on mount
+  useEffect(() => {
+    if (initialMessage) doSend(initialMessage, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleFiles = useCallback(async (files: FileList | null) => {
     if (!files?.length) return;
     const parts: FilePart[] = [];
@@ -86,13 +92,12 @@ export default function ChatPanel({ jobContext }: { jobContext?: JobContext }) {
     setPendingFiles(prev => [...prev, ...parts]);
   }, []);
 
-  async function sendMessage() {
-    const text = input.trim();
-    if (!text && !pendingFiles.length) return;
+  async function doSend(text: string, files: FilePart[]) {
+    if (!text && !files.length) return;
     if (streaming) return;
 
     setError(null);
-    const userMsg: Message = { role: "user", text, files: pendingFiles.length ? [...pendingFiles] : undefined };
+    const userMsg: Message = { role: "user", text, files: files.length ? files : undefined };
     const nextMessages = [...messages, userMsg];
     setMessages(nextMessages);
     setInput("");
@@ -136,6 +141,10 @@ export default function ChatPanel({ jobContext }: { jobContext?: JobContext }) {
     } finally {
       setStreaming(false);
     }
+  }
+
+  async function sendMessage() {
+    await doSend(input.trim(), pendingFiles);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {

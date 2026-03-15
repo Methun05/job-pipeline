@@ -413,14 +413,13 @@ export default function JobDetailPage() {
                 );
               })()}
 
-              {/* Cover Letter Tab */}
-              {activeTab === "cover_letter" && (
-                job.cover_letter ? (
-                  <ContentDisplay content={job.cover_letter} onRegenerate={() => generateContent("generate_cover_letter")} regenerating={genLoading === "generate_cover_letter"} />
-                ) : (
-                  <EmptyGenerationState loading={genLoading === "generate_cover_letter"} onClick={() => generateContent("generate_cover_letter")} label="Draft Cover Letter" />
-                )
-              )}
+              {/* Cover Letter Tab — chat-based, always mounted to preserve history */}
+              <div className={`h-full flex flex-col ${activeTab === "cover_letter" ? "" : "hidden"}`} style={{ minHeight: "460px" }}>
+                <ChatPanel
+                  jobContext={{ title: job.job_title, company: company?.name ?? "", description: job.description_raw ?? undefined }}
+                  initialMessage={`Write me a cover letter for the ${job.job_title} role at ${company?.name || "this company"}. Write in 3 to 4 proper paragraphs, 250 to 300 words, no bullet points.`}
+                />
+              </div>
 
               {/* Email Tab */}
               {activeTab === "email" && (
@@ -440,18 +439,16 @@ export default function JobDetailPage() {
                 )
               )}
 
-              {/* Chat Tab */}
-              {activeTab === "chat" && (
-                <div className="h-full flex flex-col" style={{ minHeight: "460px" }}>
-                  <ChatPanel
-                    jobContext={{
-                      title:       job.job_title,
-                      company:     company?.name ?? "",
-                      description: job.description_raw ?? undefined,
-                    }}
-                  />
-                </div>
-              )}
+              {/* Chat Tab — always mounted to preserve history */}
+              <div className={`h-full flex flex-col ${activeTab === "chat" ? "" : "hidden"}`} style={{ minHeight: "460px" }}>
+                <ChatPanel
+                  jobContext={{
+                    title:       job.job_title,
+                    company:     company?.name ?? "",
+                    description: job.description_raw ?? undefined,
+                  }}
+                />
+              </div>
 
             </div>
           </div>
