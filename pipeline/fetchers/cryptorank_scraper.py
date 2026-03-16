@@ -37,8 +37,8 @@ STAGE_MAP = {
     "series_a":      "Series A",
     "series a":      "Series A",
     "seriesa":       "Series A",
-    "pre_series_a":  "Series A",   # closest valid DB value — update when migration runs
-    "pre-series_a":  "Series A",
+    "pre_series_a":  "Pre-Series A",
+    "pre-series_a":  "Pre-Series A",
     "series_b":      "Series B",
     "series b":      "Series B",
     "seriesb":       "Series B",
