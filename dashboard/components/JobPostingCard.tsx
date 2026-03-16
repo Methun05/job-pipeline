@@ -16,6 +16,7 @@ const SOURCE_LABELS: Record<string, string> = {
   solana_jobs:        "Solana Jobs",
   paradigm:           "Paradigm",
   sui_jobs:           "Sui Jobs",
+  a16zcrypto:         "a16z Crypto",
 };
 
 function getDisplayLocation(job: JobPosting): string {
@@ -88,8 +89,6 @@ export function JobPostingMobileCard({ job, onUpdate }: { job: JobPosting; onUpd
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className="text-xs text-zinc-600 dark:text-zinc-400">{company?.name || "—"}</span>
             {getDisplayLocation(job) !== "—" && <span className="text-[11px] text-zinc-400 dark:text-zinc-500">· {getDisplayLocation(job)}</span>}
-            {websiteUrl && <a href={websiteUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"><Globe className="w-3 h-3" /></a>}
-            {company?.linkedin_url && <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-zinc-400 hover:text-blue-600"><Linkedin className="w-3 h-3" /></a>}
           </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{SOURCE_LABELS[job.source] || job.source}</span>
@@ -97,6 +96,10 @@ export function JobPostingMobileCard({ job, onUpdate }: { job: JobPosting; onUpd
               {job.posted_at ? format(new Date(job.posted_at), "MMM d") : format(new Date(job.created_at), "MMM d") + " (fetched)"}
             </span>
           </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {websiteUrl && <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"><Globe className="w-4 h-4" /></a>}
+          {company?.linkedin_url && <a href={company.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-blue-600 transition-colors"><Linkedin className="w-4 h-4" /></a>}
         </div>
       </div>
 
