@@ -37,7 +37,7 @@ from pipeline.fetchers import (
     dropstab_scraper,
     web3career, cryptojobslist_rss, cryptocurrencyjobs_rss,
     dragonfly_jobs, arbitrum_jobs, hashtagweb3, talentweb3, solana_jobs,
-    paradigm_jobs, sui_jobs,
+    paradigm_jobs, sui_jobs, a16zcrypto_jobs,
 )
 
 
@@ -595,6 +595,7 @@ def main():
         ("solana_jobs",         solana_jobs.fetch),
         ("paradigm",            paradigm_jobs.fetch),
         ("sui_jobs",            sui_jobs.fetch),
+        ("a16zcrypto",          a16zcrypto_jobs.fetch),
     ]
 
     for name, fetcher_fn in track_b_fetchers:
