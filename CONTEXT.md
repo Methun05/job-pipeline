@@ -20,9 +20,13 @@ It runs every day at **8 AM IST** and results appear at **https://tracker.methun
 **Source**: CryptoRank scraper only (free, scrapes Next.js SSR data — no paid API).
 
 **What we filter in:**
-- Funding amount: **$1M – $50M** (too small = no design team yet, too large = already fully staffed)
-- Round types: **Pre-Seed, Seed, Series A, Series B** only (later rounds = harder to get in early)
+- Funding amount: **$1M – $50M** — this is the PRIMARY filter (too small = no design team yet, too large = already fully staffed)
 - Date window: **last 45 days** — older than that, the moment has passed
+- Round type: stored as metadata, **NOT a hard filter** (changed Mar 16 2026 — see below)
+
+> **Important — round type filter change (Mar 16 2026):**
+> Round type used to be a hard filter (Pre-Seed, Seed, Series A, Series B only). This was removed because CryptoRank's SSR payload returns `stage: null` for ~75% of rounds. Filtering on stage silently dropped nearly everything and Track A returned 0 new companies every day for weeks with no errors logged.
+> Round type is now stored as-is (`"Unknown"` if null/unmapped). The amount filter ($1M–$50M) is the only hard filter. If you want to re-add a stage filter in the future, first verify what % of real CryptoRank rounds have non-null stage — run the scraper and print raw items with drop reasons before adding any filter logic.
 
 **What we extract:**
 - Company name, website, LinkedIn, funding amount + round type, announced date
@@ -411,15 +415,90 @@ Stored as JSON string in `job_postings.description_summary`. All fields optional
 
 ---
 
-### Mistake 2: CryptoRank stage filter dropping most valid companies
+### Mistake 2: CryptoRank stage filter dropping most valid companies (Track A broken silently)
 
-**What happened:** CryptoRank's `__NEXT_DATA__` SSR payload returns `stage: null` for ~75% of funding rounds. The scraper's stage filter (`STAGE_MAP.get(stage_raw)`) dropped any round without a recognized stage. Result: out of 20 rounds fetched, 15+ were dropped. Only 3 passed, and all 3 were already in the DB → `Track A new: 0` every day.
+**What happened:** CryptoRank's `__NEXT_DATA__` SSR payload returns `stage: null` for ~75% of funding rounds. The scraper's `STAGE_MAP.get(stage_raw)` hard filter dropped ANY round without a recognized stage string. Out of 20 rounds fetched per run, 15+ were silently dropped. Only 3 passed filters, all 3 already in the DB → `track_a_new: 0, track_a_skipped_dedup: 2` every single day.
 
-**Root cause discovered Mar 16 2026** by running the scraper live and printing all 20 rounds with drop reasons.
+**Why nobody noticed:** Pipeline reported `status: completed, errors: []` every day. Dashboard showed 8 companies so it looked populated. `track_a_new: 0` looks normal once a DB is built up. The clue was `skipped_dedup: 2` every run (exact same 2 companies hit dedup every day) — but it's easy to miss in the logs.
 
-**Fix applied:** Stage filter made optional — null/unmapped stage now stored as `"Unknown"` instead of causing a hard drop. Amount filter ($1M–$50M) is the primary filter. Stage is metadata only.
+**Root cause discovered Mar 16 2026** by running the scraper live and printing every item with its drop reason.
 
-**Also discovered:** CryptoRank `fallbackRounds.total = 10,883` but SSR only returns 20 per page. Pagination was added (see scraper for current implementation).
+**Fix applied (Mar 16 2026):**
+- Stage filter removed as a hard filter — null/unmapped stage now stored as `"Unknown"`, never causes a drop
+- Amount filter ($1M–$50M) is now the sole primary filter for Track A
+- Stage is metadata only — stored in `round_type` field for display, not for filtering
+- Added missing stage mappings: Pre-Series A, Strategic, Private Round, Grant
+- Removed broken pagination attempt — CryptoRank SSR ignores `?page=N` and `?offset=N`, always returns the same 20 most-recent rounds. Pagination silently produced 10× duplicates.
+
+**Pagination reality:** `fallbackRounds.total = 10,883` but SSR always serves the same 20. Pipeline runs daily so new companies accumulate naturally. No way to fetch historical rounds via the SSR method without a paid API.
+
+---
+
+## Mandatory testing rules (added Mar 16 2026)
+
+> These rules exist because two separate bugs ran silently in production for weeks without anyone noticing.
+
+### Rule 1: All fetchers and scrapers MUST be tested with real HTTP calls
+
+**Never test a scraper or fetcher with mocked HTTP responses.** Mocks hide the real failure modes:
+- The actual response structure changed on the source site
+- Fields that exist in your mock don't exist in the real response
+- Items that should pass filters are silently dropped
+
+**How to test a fetcher before touching anything else:**
+```python
+# Run the real fetch and print EVERY item with its pass/fail reason
+from pipeline.fetchers.cryptorank_scraper import fetch
+results = fetch()
+print(f"Total returned: {len(results)}")
+for r in results:
+    print(f"  {r['announced_date']} | {r['name']} | {r['round_type']} | ${r['funding_amount']:,.0f}")
+```
+
+If `len(results)` is suspiciously low (e.g. 0–3 from a source that should return 10–20), **stop and print the raw items with drop reasons before writing any code.** This is exactly how the CryptoRank bug was diagnosed.
+
+### Rule 2: When results are lower than expected — print drop reasons
+
+If a fetcher returns fewer results than expected, run a raw debug pass that prints every item and why it was dropped:
+```python
+# Debug template — adapt per fetcher
+for item in raw_items:
+    reasons = []
+    if not item.get("name"): reasons.append("no name")
+    if stage not in STAGE_MAP: reasons.append(f"stage not mapped [{stage}]")
+    if amount < MIN: reasons.append(f"too small [${amount:,.0f}]")
+    status = "DROPPED: " + ", ".join(reasons) if reasons else f"PASS [${amount:,.0f}]"
+    print(f"  {date} | {name} | {stage} | {status}")
+```
+
+### Rule 3: After any pipeline run — verify new counts make sense
+
+After running `python3 -m pipeline.main`, check:
+```python
+# Quick sanity check
+runs = sb.table('pipeline_runs').select('*').order('started_at', desc=True).limit(1).execute()
+run = runs.data[0]
+print(f"Track A new: {run['track_a_new']}, deduped: {run['track_a_skipped_dedup']}, filtered: {run['track_a_skipped_filter']}")
+print(f"Track B new: {run['track_b_new']}, deduped: {run['track_b_skipped_dedup']}, filtered: {run['track_b_skipped_filter']}")
+```
+
+Red flags to investigate immediately:
+- `track_a_new: 0` AND `track_a_skipped_dedup: 0` → scraper returned nothing, likely broken
+- `track_a_new: 0` AND `track_a_skipped_dedup: N` where N is always the same number → all results are deduped, filter may be too strict
+- `track_b_new: 0` across multiple consecutive runs → dedup too aggressive or fetchers broken
+
+### Rule 4: Cross-check workflow env vars after ANY new API key is added
+
+Every `os.getenv("KEY_NAME")` in `config.py` must have a matching line in `.github/workflows/daily_pipeline.yml`:
+```yaml
+env:
+  KEY_NAME: ${{ secrets.KEY_NAME }}
+```
+Missing this causes the enrichment chain to silently degrade. Pipeline still runs, still says completed, but Exa/Tavily/Hunter all fail and Brave (worst source) handles everything.
+
+### Rule 5: Never use mocks for integration tests on this pipeline
+
+Unit mocks are fine for testing pure logic (dedup fuzzy matching, filter thresholds, date parsing). But for anything that touches an external API or scrapes a website — use the real thing. If a test needs a real API call and you're worried about rate limits, use a `@pytest.mark.integration` marker and run them separately. Do not mock the HTTP layer for scraper tests.
 
 ---
 
