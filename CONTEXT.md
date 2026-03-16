@@ -43,7 +43,7 @@ It runs every day at **8 AM IST** and results appear at **https://tracker.methun
 
 ## Track B — Job Postings
 
-**Sources (10 total):**
+**Sources (11 total):**
 - web3career (scraper — /design-jobs page, no API key)
 - cryptojobslist (RSS)
 - cryptocurrencyjobs (RSS)
@@ -54,11 +54,19 @@ It runs every day at **8 AM IST** and results appear at **https://tracker.methun
 - solana_jobs (scraper — Getro platform, jobs.solana.com)
 - paradigm (scraper — paradigm.xyz/jobs, 600+ portfolio company jobs, has salary data)
 - sui_jobs (scraper — Getro platform, jobs.sui.io)
+- a16zcrypto (scraper — a16zcrypto.com/jobs/, added Mar 16 2026, see below)
 
 **Getro platform pattern** (dragonfly, arbitrum, solana_jobs, sui_jobs):
 - All use `__NEXT_DATA__` SSR → `props.pageProps.initialState.jobs.found`
 - `url` field is a direct job URL on Solana/Sui boards
 - `organization.websiteUrl` may not exist on all Getro boards
+
+**a16z Crypto board specifics (added Mar 16 2026):**
+- Scrapes `portfolioJobs` JS variable embedded in `a16zcrypto.com/jobs/` HTML — no API key needed
+- Structure: `[{company, jobs: [{...}]}]` — grouped by company, flattened in the fetcher
+- Same field names as paradigm_jobs.py: `title`, `companyName`, `companyDomain`, `locations`, `remote`, `salary {minValue, maxValue, currency}`, `createdAt`, `url`
+- Uses **30-day window** (not 72h) — board updates weekly, not daily. URL dedup handles re-runs.
+- ~660 jobs across ~59 portfolio companies (Coinbase, EigenLayer, Alchemy, OpenSea, Phantom, Uniswap, etc.)
 
 **Paradigm board specifics:**
 - `__NEXT_DATA__` → `props.pageProps.jobs` (different path from Getro)
@@ -124,7 +132,8 @@ job-pipeline/
 │   │   ├── talentweb3.py
 │   │   ├── solana_jobs.py              ← Getro platform (added Mar 2026)
 │   │   ├── paradigm_jobs.py            ← paradigm.xyz/jobs (added Mar 2026)
-│   │   └── sui_jobs.py                 ← Getro platform (added Mar 2026)
+│   │   ├── sui_jobs.py                 ← Getro platform (added Mar 2026)
+│   │   └── a16zcrypto_jobs.py          ← a16zcrypto.com/jobs/ (added Mar 16 2026, 30-day window)
 │   ├── dedup/              ← Duplicate detection logic
 │   ├── filters/            ← Experience + remote scope filtering
 │   └── enrichment/
@@ -228,9 +237,9 @@ main.py
   │       → db.insert_funded_lead()
   │
   ├── Track B:
-  │     10 fetchers (web3career, cryptojobslist, cryptocurrencyjobs,
+  │     11 fetchers (web3career, cryptojobslist, cryptocurrencyjobs,
   │                  dragonfly, arbitrum, hashtagweb3, talentweb3,
-  │                  solana_jobs, paradigm, sui_jobs)
+  │                  solana_jobs, paradigm, sui_jobs, a16zcrypto)
   │       → role keyword filter (must match design titles)
   │       → URL dedup
   │       → experience filter (skip 7+ year roles)
@@ -557,6 +566,28 @@ Unit mocks are fine for testing pure logic (dedup fuzzy matching, filter thresho
 - `category` — string category
 
 **Lesson:** When writing a new `__NEXT_DATA__` scraper, always print `list(pageProps.keys())` and find which key contains the actual list data before assuming key names. Also print the first item's full key set to find date/amount field names.
+
+---
+
+## Sources investigated and ruled out (Mar 16 2026)
+
+### Farcaster (via Neynar API)
+- **Idea**: Search /jobs, /hiring, /design channels for design job posts by founders
+- **Why rejected**: Neynar free tier — cast search and channel feeds are both 402 (paid, ~$25/mo). Free Hub API (snap.farcaster.xyz) works but only polls specific channels. /jobs channel had 0 new posts in 72h; /design channel had 4 posts (all spam — Base chain bots, gambling). Not worth the cost.
+- **Technical notes for future**: Correct channel parent URLs are `chain://eip155:...` format — found at github.com/neynarxyz/farcaster-channels/blob/main/warpcast.json. Hub API: `GET snap.farcaster.xyz:3381/v1/castsByParent?url={encoded_url}&pageSize=100&reverse=true`
+
+### jobs.a16z.com (Consider platform)
+- **Idea**: Scrape a16z's main portfolio job board (742 companies, 14,854 jobs)
+- **Why rejected**: Fully client-side React SPA (Consider platform). No `__NEXT_DATA__`, no accessible API — jobs load via obfuscated mendel.js bundle. Not scrapable without headless browser. Also: board includes mostly non-crypto companies.
+
+### jobs.paradigm.xyz (Consider platform)
+- **Idea**: Scrape Paradigm's Consider-powered board (94 companies, 618 jobs) as complement to paradigm.xyz/jobs
+- **Why rejected**: Same Consider platform as jobs.a16z.com — same dead end. We already have `paradigm.xyz/jobs` which uses `__NEXT_DATA__` and works.
+
+### remote3.co
+- **Idea**: Dedicated remote web3 job board with a Design category
+- **Why rejected**: Board went dormant — no new jobs since Feb 24 (3 weeks), no design jobs since early Jan. RSS only has 8 items. Supabase API is directly accessible (anon key in layout chunk) and Design category exists, but yield on daily runs would be 0.
+- **Technical notes for future**: Supabase URL: `ojpncdvueyetebptprsv.supabase.co`. Query: `GET /rest/v1/jobs?select=...&is_draft=eq.false&title=ilike.*design*&order=live_at.desc`. Anon key in `/_next/static/chunks/app/layout-[hash].js`.
 
 ---
 
