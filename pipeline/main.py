@@ -34,6 +34,7 @@ from pipeline.config import (
 
 from pipeline.fetchers import (
     cryptorank_scraper,
+    dropstab_scraper,
     web3career, cryptojobslist_rss, cryptocurrencyjobs_rss,
     dragonfly_jobs, arbitrum_jobs, hashtagweb3, talentweb3, solana_jobs,
     paradigm_jobs, sui_jobs,
@@ -219,10 +220,13 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
         except Exception as e:
             stats.add_error("gemini_track_a", str(e))
 
-    # Merge company_type into raw_data (no extra DB column needed)
+    # Merge company_type and scraper-provided twitter_url into raw_data
     raw_data = dict(company_data.get("raw_data") or {})
     if company_type:
         raw_data["company_type"] = company_type
+    # twitter_url from DropsTab — stored in raw_data (no companies.twitter_url column)
+    if company_data.get("twitter_url"):
+        raw_data["twitter_url"] = company_data["twitter_url"]
 
     # Save funded lead
     db.insert_funded_lead({
@@ -561,6 +565,13 @@ def main():
     except Exception as e:
         stats.add_error("cryptorank_scraper", str(e))
 
+    # DropsTab scraper — second independent source, ~50 rounds per run
+    try:
+        items = dropstab_scraper.fetch()
+        print(f"[DropsTab] Fetched {len(items)} matching rounds")
+        raw_funded.extend(items)
+    except Exception as e:
+        stats.add_error("dropstab_scraper", str(e))
 
     print(f"[Track A] Processing {len(raw_funded)} funded company candidates...")
     for item in raw_funded:
