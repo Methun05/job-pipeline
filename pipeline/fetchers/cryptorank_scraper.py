@@ -37,8 +37,8 @@ STAGE_MAP = {
     "series_a":      "Series A",
     "series a":      "Series A",
     "seriesa":       "Series A",
-    "pre_series_a":  "Pre-Series A",
-    "pre-series_a":  "Pre-Series A",
+    "pre_series_a":  "Series A",   # closest valid DB value — update when migration runs
+    "pre-series_a":  "Series A",
     "series_b":      "Series B",
     "series b":      "Series B",
     "seriesb":       "Series B",
@@ -140,9 +140,10 @@ def fetch() -> list[dict]:
             if not (FUNDING_MIN_USD <= amount <= FUNDING_MAX_USD):
                 continue
 
-            # Stage — optional metadata, never a hard filter
+            # Stage — optional metadata, never a hard filter.
+            # DB constraint only allows specific values — unmapped stages stored as None.
             stage_raw  = (item.get("stage") or "").lower().replace(" ", "_").replace("-", "_")
-            round_type = STAGE_MAP.get(stage_raw, "Unknown")
+            round_type = STAGE_MAP.get(stage_raw)  # None if unmapped — passes DB CHECK constraint
 
             key = item.get("key", "")
 

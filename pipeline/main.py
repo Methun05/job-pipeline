@@ -91,10 +91,10 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
         stats.track_a_skipped_filter += 1
         return
 
-    round_type = company_data.get("round_type")
-    if round_type not in ("Pre-Seed", "Seed", "Series A", "Series B"):
-        stats.track_a_skipped_filter += 1
-        return
+    round_type = company_data.get("round_type") or None
+    # Stage is NOT a hard filter — CryptoRank SSR returns null stage for ~75% of rounds.
+    # Amount ($1M–$50M) is the only hard filter. Round type is stored as metadata only.
+    # None passes the DB valid_round CHECK constraint (NULL rows are allowed).
 
     # Dedup
     existing_id = find_company_match(name, domain, existing_companies)

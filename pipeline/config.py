@@ -27,7 +27,7 @@ GEMINI_ENABLED  = True
 PROFILE = {
     "name":           "Methun R",
     "role":           "Product Designer",
-    "years":          4,
+    "years":          5,
     "specialization": "Crypto/web3 UX, DeFi products, complex financial interfaces",
     "skills":         "Figma, design systems, user research, prototyping, mobile-first design",
     "background":     "Currently at a crypto company (remote, India-based)",
@@ -61,6 +61,7 @@ DESIGN_ROLE_KEYWORDS = [
 # Experience keywords that signal skip-tier (8+ years / staff / principal / director)
 SKIP_TIER_KEYWORDS = [
     "staff designer",
+    "staff product designer",
     "principal designer",
     "principal product designer",
     "design director",
