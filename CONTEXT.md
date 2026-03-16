@@ -386,6 +386,43 @@ Stored as JSON string in `job_postings.description_summary`. All fields optional
 
 ---
 
+## Testing lessons — mistakes made (Mar 16 2026)
+
+### Mistake 1: Unit tests with mocks cannot catch missing CI env vars
+
+**What happened:** GitHub Actions workflow was missing env vars for GEMINI_API_KEY_2, EXA_API_KEY, EXA_API_KEY_2, TAVILY_API_KEY, HUNTER_API_KEY. Pipeline ran daily without the full enrichment chain. All Twitter/LinkedIn lookups fell through to Brave (worst source) silently.
+
+**Why Claude missed it:** Unit tests used `mock.patch` to replace API clients entirely. Mocks pretend keys exist and calls succeed — they never touch `os.getenv()`. Tests passed locally (where `.env` has all keys) but CI never had those keys.
+
+**How to avoid this — if writing tests again:**
+1. **Always include an env var smoke test** — before any mocked test, assert that required keys are non-empty strings in the real environment:
+   ```python
+   def test_required_env_vars_present():
+       import os
+       required = ["EXA_API_KEY", "TAVILY_API_KEY", "HUNTER_API_KEY", "GEMINI_API_KEY", "GEMINI_API_KEY_2"]
+       for key in required:
+           assert os.getenv(key), f"Missing required env var: {key}"
+   ```
+2. **Cross-check workflow file against config.py** — every key loaded via `os.getenv()` in `config.py` must have a corresponding `${{ secrets.KEY_NAME }}` line in `.github/workflows/daily_pipeline.yml`. This is the single most important CI audit step.
+3. **Write at least one integration test per enrichment chain** — not mocked, uses real API keys, verifies the full Exa→Tavily→Brave cascade works end-to-end in CI.
+4. **After adding any new API key** — immediately update the workflow file. Don't defer it.
+
+**Symptoms of this bug:** Pipeline runs show `errors: []` and `status: completed` but enrichment data (Twitter, LinkedIn, contacts) is missing or low quality. Records save fine — only enrichment is silently degraded.
+
+---
+
+### Mistake 2: CryptoRank stage filter dropping most valid companies
+
+**What happened:** CryptoRank's `__NEXT_DATA__` SSR payload returns `stage: null` for ~75% of funding rounds. The scraper's stage filter (`STAGE_MAP.get(stage_raw)`) dropped any round without a recognized stage. Result: out of 20 rounds fetched, 15+ were dropped. Only 3 passed, and all 3 were already in the DB → `Track A new: 0` every day.
+
+**Root cause discovered Mar 16 2026** by running the scraper live and printing all 20 rounds with drop reasons.
+
+**Fix applied:** Stage filter made optional — null/unmapped stage now stored as `"Unknown"` instead of causing a hard drop. Amount filter ($1M–$50M) is the primary filter. Stage is metadata only.
+
+**Also discovered:** CryptoRank `fallbackRounds.total = 10,883` but SSR only returns 20 per page. Pagination was added (see scraper for current implementation).
+
+---
+
 ## Deferred / future work
 
 - Gmail response tracking — monitor inbox, auto-update outreach status when replies come in

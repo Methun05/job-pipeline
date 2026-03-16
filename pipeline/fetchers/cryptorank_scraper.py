@@ -4,10 +4,17 @@ No API key required. No Playwright. Two HTTP requests per run:
   1. Fetch page to get current Next.js buildId
   2. Fetch /_next/data/{buildId}/funding-rounds.json for structured JSON
 
+CryptoRank SSR always returns the same 20 most-recent rounds regardless of
+page/offset params — pagination is not supported via this method. The pipeline
+runs daily so new companies accumulate naturally over the 45-day window.
+
+Stage filter is intentionally lenient — null/unmapped stage stored as "Unknown"
+instead of dropping the record. Amount ($1M–$50M) is the primary filter.
+This was the root cause of Track A returning 0 every day (Mar 2026): ~75% of
+rounds have null stage in the SSR payload, so the old hard stage filter killed them.
+
 For each company, one additional request to /ico/{key} extracts
 the real website URL and company LinkedIn from the links array.
-
-Returns ~20 most recent funding rounds per run.
 """
 import json
 import time
@@ -23,16 +30,25 @@ HEADERS    = {
 }
 
 STAGE_MAP = {
-    "pre_seed":  "Pre-Seed",
-    "preseed":   "Pre-Seed",
-    "pre-seed":  "Pre-Seed",
-    "seed":      "Seed",
-    "series_a":  "Series A",
-    "series a":  "Series A",
-    "seriesa":   "Series A",
-    "series_b":  "Series B",
-    "series b":  "Series B",
-    "seriesb":   "Series B",
+    "pre_seed":      "Pre-Seed",
+    "preseed":       "Pre-Seed",
+    "pre-seed":      "Pre-Seed",
+    "seed":          "Seed",
+    "series_a":      "Series A",
+    "series a":      "Series A",
+    "seriesa":       "Series A",
+    "pre_series_a":  "Pre-Series A",
+    "pre-series_a":  "Pre-Series A",
+    "series_b":      "Series B",
+    "series b":      "Series B",
+    "seriesb":       "Series B",
+    "series_c":      "Series C",
+    "series c":      "Series C",
+    "seriesc":       "Series C",
+    "strategic":     "Strategic",
+    "private":       "Private Round",
+    "private_round": "Private Round",
+    "grant":         "Grant",
 }
 
 
@@ -79,6 +95,13 @@ def fetch() -> list[dict]:
     """
     Returns list of normalized funded company dicts matching our filters.
     Each dict: {name, website, linkedin_url, funding_amount, funding_currency, round_type, announced_date, source}
+
+    Key design decisions:
+    - Stage is OPTIONAL — null/unmapped stage stored as "Unknown", not dropped.
+      Amount ($1M–$50M) is the primary filter. ~75% of CryptoRank rounds have null
+      stage in the SSR payload. Hard stage filtering was the root cause of Track A = 0.
+    - No pagination — CryptoRank SSR always returns the same 20 rounds regardless of
+      page/offset params. Pipeline runs daily so new companies accumulate over time.
     """
     cutoff = datetime.now(timezone.utc) - timedelta(days=TRACK_A_DAYS_WINDOW)
 
@@ -105,13 +128,11 @@ def fetch() -> list[dict]:
             if announced < cutoff:
                 continue
 
-            # Stage filter
-            stage_raw  = (item.get("stage") or "").lower().replace(" ", "_")
-            round_type = STAGE_MAP.get(stage_raw)
-            if not round_type:
+            name = item.get("name") or ""
+            if not name:
                 continue
 
-            # Amount filter
+            # Amount filter — primary filter
             amount = item.get("raise") or item.get("publicSalesRaise")
             if not amount:
                 continue
@@ -119,9 +140,9 @@ def fetch() -> list[dict]:
             if not (FUNDING_MIN_USD <= amount <= FUNDING_MAX_USD):
                 continue
 
-            name = item.get("name") or ""
-            if not name:
-                continue
+            # Stage — optional metadata, never a hard filter
+            stage_raw  = (item.get("stage") or "").lower().replace(" ", "_").replace("-", "_")
+            round_type = STAGE_MAP.get(stage_raw, "Unknown")
 
             key = item.get("key", "")
 
