@@ -24,9 +24,9 @@ It runs every day at **8 AM IST** and results appear at **https://tracker.methun
 - Date window: **last 45 days** — older than that, the moment has passed
 - Round type: stored as metadata, **NOT a hard filter** (changed Mar 16 2026 — see below)
 
-> **Important — round type filter change (Mar 16 2026):**
-> Round type used to be a hard filter (Pre-Seed, Seed, Series A, Series B only). This was removed because CryptoRank's SSR payload returns `stage: null` for ~75% of rounds. Filtering on stage silently dropped nearly everything and Track A returned 0 new companies every day for weeks with no errors logged.
-> Round type is now stored as-is (`"Unknown"` if null/unmapped). The amount filter ($1M–$50M) is the only hard filter. If you want to re-add a stage filter in the future, first verify what % of real CryptoRank rounds have non-null stage — run the scraper and print raw items with drop reasons before adding any filter logic.
+> **Round type is display-only — never a filter (fixed Mar 16 2026):**
+> Round type was previously a hard filter (Pre-Seed, Seed, Series A, Series B only). This was wrong — CryptoRank SSR returns `stage: null` for ~75% of rounds, so filtering on stage silently dropped nearly everything. Amount ($1M–$50M) is the ONLY hard filter. Round type is just a label stored as-is from CryptoRank (null if unknown). The DB `valid_round` CHECK constraint was also dropped entirely — it added no value.
+> Do NOT re-add any round type filter. A company raising $10M in Series C or an unknown stage is just as relevant as one in Seed.
 
 **What we extract:**
 - Company name, website, LinkedIn, funding amount + round type, announced date
@@ -366,6 +366,38 @@ Stored as JSON string in `job_postings.description_summary`. All fields optional
 - `pipeline/enrichment/exa_finder.py` — Exa key pool logic, don't break rotation
 - `dashboard/app/funded/page.tsx` and `jobs/page.tsx` — these query Supabase directly
 - Any DB schema change — needs migration file + dashboard update together
+
+---
+
+## Known bugs fixed (Mar 16 2026)
+
+### Track A returning 0 new companies every day (silent — no errors logged)
+
+**Root cause 1 — scraper:** `cryptorank_scraper.py` had a hard stage filter. CryptoRank SSR returns `stage: null` for ~75% of rounds. `STAGE_MAP.get(null)` returned None → hard drop. 15/20 companies dropped every run.
+
+**Root cause 2 — main.py:** `process_funded_company()` had its own duplicate stage filter: `if round_type not in ("Pre-Seed", "Seed", "Series A", "Series B"): return`. Even if scraper passed a company through, main.py killed it before contact finding.
+
+**Root cause 3 — DB constraint:** `valid_round` CHECK constraint only allowed 4 values. New round types caused DB insert errors.
+
+**All three fixed Mar 16 2026:**
+- Stage filter removed from scraper and main.py entirely
+- `round_type` is now a free-text display label, stored as-is (null if CryptoRank doesn't provide it)
+- `valid_round` DB constraint dropped — run `ALTER TABLE funded_leads DROP CONSTRAINT valid_round;` if not done already
+- Amount ($1M–$50M) is the only hard filter for Track A
+
+### GitHub Actions missing env vars (silent enrichment degradation)
+
+**What happened:** GEMINI_API_KEY_2, EXA_API_KEY, EXA_API_KEY_2, TAVILY_API_KEY, HUNTER_API_KEY were not in the workflow `env:` block. Every daily run fell through to Brave Search directly for all Twitter/LinkedIn enrichment. Pipeline reported `completed` with no errors.
+
+**Fixed Mar 16 2026:** All keys added to workflow. After adding any new API key to config.py, immediately add it to `.github/workflows/daily_pipeline.yml` too.
+
+### SKIP_TIER_KEYWORDS missing "staff product designer"
+
+"Staff Product Designer" was classified as `stretch` instead of `skip` because the list had `"staff designer"` but not `"staff product designer"`. Fixed in `config.py`.
+
+### config.py profile years: 4 → 5
+
+Profile years was 4 in `config.py` but 5 everywhere else (CONTEXT.md, profile.ts). Fixed.
 
 ---
 
