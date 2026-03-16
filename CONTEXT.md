@@ -17,7 +17,7 @@ It runs every day at **8 AM IST** and results appear at **https://tracker.methun
 
 ## Track A — Funded Companies
 
-**Source**: CryptoRank scraper only (free, scrapes Next.js SSR data — no paid API).
+**Sources**: CryptoRank + DropsTab scrapers (both free, scrape Next.js SSR data — no paid API).
 
 **What we filter in:**
 - Funding amount: **$1M – $50M** — this is the PRIMARY filter (too small = no design team yet, too large = already fully staffed)
@@ -113,7 +113,8 @@ job-pipeline/
 │   │                          fetch_website_text(url, max_chars=1500) — accepts max_chars param
 │   │                          generate_job_content(..., job_page_text="") — uses full page if longer
 │   ├── fetchers/           ← Data sources (one file per source)
-│   │   ├── cryptorank_scraper.py       ← ONLY Track A source (don't break)
+│   │   ├── cryptorank_scraper.py       ← Track A source 1 (CryptoRank, ~20 rounds/run)
+│   │   ├── dropstab_scraper.py         ← Track A source 2 (DropsTab, ~43 rounds/run, added Mar 16 2026)
 │   │   ├── web3career.py               ← Scrapes /design-jobs (no API key needed)
 │   │   ├── cryptojobslist_rss.py
 │   │   ├── cryptocurrencyjobs_rss.py
@@ -175,8 +176,12 @@ GEMINI_ENABLED = True   # ← currently True (dual-key fallback in place)
 ```
 If Gemini is disabled, AI-generated content is skipped — that's intentional. Don't remove the `if GEMINI_ENABLED:` guards.
 
-### 3. `cryptorank_scraper.py` is the ONLY Track A source
-RSS sources were removed because they need Gemini to parse. Do not add new RSS sources to Track A unless Gemini is enabled and tested.
+### 3. Track A sources: CryptoRank + DropsTab
+Both scrapers use `__NEXT_DATA__` SSR. Do not add RSS sources to Track A — they need Gemini to parse unstructured text.
+
+**CryptoRank**: `props.pageProps.fallbackRounds.data` — 20 rounds/run, date as ISO string, amount as float in USD.
+
+**DropsTab**: `props.pageProps.fallbackBody.content` — 50 rounds/run, `announceDate` as Unix ms timestamp, `fundsRaised` as float. Per-company page `/coins/{slug}/fundraising` has `coin.links[]` with `type` = `WEBSITE`/`TWITTER`/`LINKEDIN` and field name `link` (NOT `url`). twitter_url from DropsTab is stored in `funded_leads.raw_data` (no `companies.twitter_url` column).
 
 ### 4. Apollo API
 - People search (`/api/v1/mixed_people/api_search`): free, no credits.
@@ -212,7 +217,8 @@ main.py
   ├── Check Apollo credits
   ├── Load all existing companies (for dedup)
   ├── Track A:
-  │     cryptorank_scraper.fetch()
+  │     cryptorank_scraper.fetch()  ← ~20 rounds/run
+  │     dropstab_scraper.fetch()    ← ~43 rounds/run (added Mar 16 2026)
   │       → filter by funding amount ($1M–$50M) + round type
   │       → dedup against existing companies
   │       → apollo.find_contact() → hunter.find_contact() fallback
@@ -531,6 +537,26 @@ Missing this causes the enrichment chain to silently degrade. Pipeline still run
 ### Rule 5: Never use mocks for integration tests on this pipeline
 
 Unit mocks are fine for testing pure logic (dedup fuzzy matching, filter thresholds, date parsing). But for anything that touches an external API or scrapes a website — use the real thing. If a test needs a real API call and you're worried about rate limits, use a `@pytest.mark.integration` marker and run them separately. Do not mock the HTTP layer for scraper tests.
+
+---
+
+## Known bugs fixed (Mar 16 2026 — DropsTab)
+
+### DropsTab scraper: wrong __NEXT_DATA__ key path + name concatenation
+
+**Symptom:** Company names had ticker symbol prepended — "UPUnitas Labs", "POWERPower Protocol", "KLEDKled AI".
+
+**Root cause:** `_parse_from_next_data()` tried `pageProps.fundraisingRounds` and `pageProps.rounds` — neither exists. Fell through silently to HTML table parsing. HTML table renders company name as `{symbol}{name}` in a single cell, so BeautifulSoup concatenated them.
+
+**Fix:** DropsTab list page uses `props.pageProps.fallbackBody.content` (50 items). Fields:
+- `name` — clean string, no symbol
+- `slug` — used to fetch individual company page
+- `fundsRaised` — numeric float (no parsing needed)
+- `announceDate` — Unix timestamp in milliseconds (divide by 1000 for `datetime.fromtimestamp()`)
+- `stage` — title case ("Seed Round", "pre-Series A") — lowercase before STAGE_MAP lookup
+- `category` — string category
+
+**Lesson:** When writing a new `__NEXT_DATA__` scraper, always print `list(pageProps.keys())` and find which key contains the actual list data before assuming key names. Also print the first item's full key set to find date/amount field names.
 
 ---
 
