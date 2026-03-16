@@ -28,9 +28,12 @@ jobs:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2:     ${{ secrets.GEMINI_API_KEY_2 }}
           APOLLO_API_KEY:       ${{ secrets.APOLLO_API_KEY }}
-          CRYPTORANK_API_KEY:   ${{ secrets.CRYPTORANK_API_KEY }}
-          WEB3CAREER_API_KEY:   ${{ secrets.WEB3CAREER_API_KEY }}
+          HUNTER_API_KEY:       ${{ secrets.HUNTER_API_KEY }}
+          EXA_API_KEY:          ${{ secrets.EXA_API_KEY }}
+          EXA_API_KEY_2:        ${{ secrets.EXA_API_KEY_2 }}
+          TAVILY_API_KEY:       ${{ secrets.TAVILY_API_KEY }}
           BRAVE_API_KEY:        ${{ secrets.BRAVE_API_KEY }}
         run: python -m pipeline.main
 
