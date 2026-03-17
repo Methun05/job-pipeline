@@ -8,7 +8,7 @@ export const maxDuration = 60;
 const PROVIDER = "openrouter"; // "openrouter" | "gemini"
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_MODEL   = "qwen/qwen3.5-9b";
+const OPENROUTER_MODEL   = "google/gemma-3-4b-it:free"; // qwen/qwen3.5-9b takes 22s (thinking model — times out)
 
 // const GEMINI_API_KEY  = process.env.GEMINI_API_KEY_CHAT;
 // const GEMINI_MODEL    = "gemini-2.0-flash";
