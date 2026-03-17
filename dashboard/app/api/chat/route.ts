@@ -1,6 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 import { buildSystemPrompt } from "@/lib/profile";
 
+export const maxDuration = 60;
+
 const apiKey = process.env.GEMINI_API_KEY_CHAT;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
@@ -39,7 +41,7 @@ export async function POST(req: Request) {
 
   try {
     const stream = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: messages,
       config: { systemInstruction },
     });
