@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { buildSystemPrompt, PROFILE } from "@/lib/profile";
 
 // Ensure the API key is available
-const apiKey = process.env.GEMINI_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY_DASHBOARD;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export async function POST(req: Request) {
