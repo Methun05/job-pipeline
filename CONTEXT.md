@@ -150,8 +150,8 @@ job-pipeline/
 │   │   │                          Requirements tab: amber card (candidate_location) + requirements bullets
 │   │   └── api/
 │   │       ├── reveal-email/route.ts       ← Apollo → Hunter email reveal (server-side)
-│   │       ├── generate-content/route.ts   ← On-demand: generate_summary extracts candidate_location
-│   │       └── chat/route.ts               ← Gemini streaming chat (GEMINI_API_KEY_CHAT)
+│   │       ├── generate-content/route.ts   ← On-demand: generate_summary extracts candidate_location (uses GEMINI_API_KEY_DASHBOARD)
+│   │       └── chat/route.ts               ← Streaming chat via OpenRouter (free model) — GEMINI_API_KEY_CHAT not in use
 │   ├── components/
 │   │   ├── Sidebar.tsx
 │   │   ├── FundedCompanyCard.tsx
