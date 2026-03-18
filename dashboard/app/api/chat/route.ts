@@ -5,13 +5,13 @@ export const maxDuration = 60;
 // ── Provider config ────────────────────────────────────────────────────────────
 // To switch back to Gemini: set PROVIDER = "gemini" and ensure GEMINI_API_KEY_CHAT is set.
 
-const PROVIDER = "openrouter"; // "openrouter" | "gemini"
+const PROVIDER = "gemini"; // "openrouter" | "gemini"
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_MODEL   = "google/gemma-3-4b-it:free"; // qwen/qwen3.5-9b takes 22s (thinking model — times out)
 
-// const GEMINI_API_KEY  = process.env.GEMINI_API_KEY_CHAT;
-// const GEMINI_MODEL    = "gemini-2.0-flash";
+const GEMINI_API_KEY  = process.env.GEMINI_API_KEY_CHAT;
+const GEMINI_MODEL    = "gemini-2.5-flash";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -77,8 +77,7 @@ export async function POST(req: Request) {
     return openRouterChat(messages, systemPrompt);
   }
 
-  // Gemini fallback (disabled — uncomment GEMINI imports above to re-enable)
-  return new Response("Gemini provider is currently disabled. Set PROVIDER to 'openrouter'.", { status: 503 });
+  return geminiChat(messages, systemPrompt);
 }
 
 // ── OpenRouter handler ─────────────────────────────────────────────────────────
@@ -161,32 +160,32 @@ async function openRouterChat(messages: ChatMessage[], systemPrompt: string) {
   }
 }
 
-// ── Gemini handler (disabled) ──────────────────────────────────────────────────
-//
-// async function geminiChat(messages: ChatMessage[], systemPrompt: string) {
-//   const { GoogleGenAI } = await import("@google/genai");
-//   if (!GEMINI_API_KEY) return new Response("GEMINI_API_KEY_CHAT is not configured.", { status: 500 });
-//
-//   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-//   const stream = await ai.models.generateContentStream({
-//     model: GEMINI_MODEL,
-//     contents: messages,
-//     config: { systemInstruction: systemPrompt },
-//   });
-//
-//   const readable = new ReadableStream({
-//     async start(controller) {
-//       const encoder = new TextEncoder();
-//       try {
-//         for await (const chunk of stream) {
-//           const text = chunk.text;
-//           if (text) controller.enqueue(encoder.encode(text));
-//         }
-//       } finally {
-//         controller.close();
-//       }
-//     },
-//   });
-//
-//   return new Response(readable, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
-// }
+// ── Gemini handler ─────────────────────────────────────────────────────────────
+
+async function geminiChat(messages: ChatMessage[], systemPrompt: string) {
+  const { GoogleGenAI } = await import("@google/genai");
+  if (!GEMINI_API_KEY) return new Response("GEMINI_API_KEY_CHAT is not configured.", { status: 500 });
+
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+  const stream = await ai.models.generateContentStream({
+    model: GEMINI_MODEL,
+    contents: messages,
+    config: { systemInstruction: systemPrompt },
+  });
+
+  const readable = new ReadableStream({
+    async start(controller) {
+      const encoder = new TextEncoder();
+      try {
+        for await (const chunk of stream) {
+          const text = chunk.text;
+          if (text) controller.enqueue(encoder.encode(text));
+        }
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readable, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+}
