@@ -5,7 +5,7 @@ export const maxDuration = 60;
 // ── Provider config ────────────────────────────────────────────────────────────
 // To switch back to Gemini: set PROVIDER = "gemini" and ensure GEMINI_API_KEY_CHAT is set.
 
-const PROVIDER = "gemini"; // "openrouter" | "gemini"
+const PROVIDER: string = "gemini"; // "openrouter" | "gemini"
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_MODEL   = "google/gemma-3-4b-it:free"; // qwen/qwen3.5-9b takes 22s (thinking model — times out)
