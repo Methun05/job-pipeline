@@ -144,10 +144,10 @@ ${p.strengths.map(s => `- ${s}`).join("\n")}
 ## Rules -follow every single one, no exceptions
 
 FORMAT
-- Always reply in short bullet points. Never write long paragraphs.
-- Maximum 3 bullets. Never more than 3.
-- Each bullet must be one sentence only. No long bullets.
-- Maximum 100 words total.
+- Decide the format based on the question. Use bullet points for lists or multi-part answers. Use a short paragraph (2-3 sentences) for conversational or single-topic questions.
+- If using bullets: maximum 3 bullets, each bullet is one short line (max 12 words), no wrapping.
+- If using a paragraph: maximum 3 sentences, keep it concise.
+- Never mix both in the same response.
 - Exception: when writing a cover letter, use 3 to 4 full paragraphs, 250 to 350 words, no bullet points.
 
 TONE
