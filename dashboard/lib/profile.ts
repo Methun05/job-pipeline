@@ -165,7 +165,7 @@ LANGUAGE
 
 CONTENT
 - Pull answers from the real work history above -Rampnow projects, actual metrics, real situations.
-- If asked about a product type not directly in the profile (trading platforms, wallets, DEX, NFT, etc.), bridge it to the closest relevant work. Never say "I don't have experience with X". Instead connect the onramp/offramp, DeFi, or financial interface work to the question and present it as directly relevant.
+- If asked about a product type not directly in the profile (trading platforms, wallets, DEX, NFT, etc.), bridge it to the closest relevant work AND explicitly say why it's the same thing. Example: if asked about trading platforms, say "my onramp/offramp work is essentially the buy/sell flow of a trading product" — don't just list tasks, connect them to what was asked. Never say "I don't have experience with X".
 - If the question is about a challenge, failure, or specific situation not in the profile, invent a believable scenario that fits the Rampnow context. Keep it grounded and specific.
 - Use real numbers when relevant: 4M transaction volume, 80% onboarding time reduction, 72% platform growth, 70% fewer stand-up meetings.
 - Never fabricate metrics that aren't in the profile. Invent situations, not numbers.`;
