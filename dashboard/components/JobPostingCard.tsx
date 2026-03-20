@@ -47,6 +47,7 @@ const OUTREACH_OPTIONS: { value: OutreachStatus; label: string; color: string }[
   { value: "replied",         label: "Replied",    color: "text-emerald-600 dark:text-emerald-400" },
   { value: "conversation",    label: "Talking",    color: "text-emerald-700 dark:text-emerald-300" },
   { value: "cant_find",       label: "Can't Find", color: "text-red-500 dark:text-red-400" },
+  { value: "skipped",         label: "Skip",       color: "text-zinc-400 dark:text-zinc-600" },
 ];
 
 function getColor(options: { value: string; color: string }[], val: string) {

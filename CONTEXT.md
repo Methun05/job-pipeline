@@ -151,7 +151,7 @@ job-pipeline/
 │   │   └── api/
 │   │       ├── reveal-email/route.ts       ← Apollo → Hunter email reveal (server-side)
 │   │       ├── generate-content/route.ts   ← On-demand: generate_summary extracts candidate_location (uses GEMINI_API_KEY_DASHBOARD)
-│   │       └── chat/route.ts               ← Streaming chat via OpenRouter (free model) — GEMINI_API_KEY_CHAT not in use
+│   │       └── chat/route.ts               ← Streaming chat via Anthropic SDK (claude-sonnet-4-6) — uses ANTHROPIC_API_KEY
 │   ├── components/
 │   │   ├── Sidebar.tsx
 │   │   ├── FundedCompanyCard.tsx
@@ -593,7 +593,6 @@ Unit mocks are fine for testing pure logic (dedup fuzzy matching, filter thresho
 
 ## Deferred / future work
 
-- Gmail response tracking — monitor inbox, auto-update outreach status when replies come in
 - Re-add RSS sources to Track A (TechCrunch, EU Startups etc) when ready
 - Salary + visa sponsorship extraction in pipeline Gemini prompt (fields exist in DB, never populated by pipeline — only by on-demand dashboard button)
 

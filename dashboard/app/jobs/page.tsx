@@ -77,7 +77,7 @@ export default function JobsPage() {
 
   const filtered = useMemo(() => {
     let rows = jobs;
-    if      (filter === "active") rows = jobs.filter(j => ACTIVE_APP.includes(j.application_status));
+    if      (filter === "active") rows = jobs.filter(j => ACTIVE_APP.includes(j.application_status) && j.outreach_status !== "skipped");
     else if (filter === "done")   rows = jobs.filter(j => DONE_APP.includes(j.application_status));
     else if (filter !== "all")    rows = jobs.filter(j => j.application_status === filter);
 

@@ -6,7 +6,7 @@ export type AppStatus =
   | "new" | "applied" | "follow_up" | "interview" | "offer" | "rejected" | "skipped";
 
 export type OutreachStatus =
-  | "new" | "connection_sent" | "connected" | "replied" | "conversation" | "cant_find";
+  | "new" | "connection_sent" | "connected" | "replied" | "conversation" | "cant_find" | "skipped";
 
 export type RemoteScope = "global" | "us_only" | "unclear";
 export type ExperienceMatch = "strong" | "stretch";
