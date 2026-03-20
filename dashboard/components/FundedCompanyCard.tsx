@@ -29,6 +29,7 @@ const OUTREACH_OPTIONS = [
   { value: "connection_sent", label: "Sent",       color: "text-violet-600 dark:text-violet-400" },
   { value: "connected",       label: "Connected",  color: "text-blue-600 dark:text-blue-400" },
   { value: "cant_find",       label: "Can't Find", color: "text-red-500 dark:text-red-400" },
+  { value: "skipped",         label: "Skip",       color: "text-zinc-400 dark:text-zinc-600" },
 ];
 
 const RESPONSE_OPTIONS = [
@@ -39,7 +40,7 @@ const RESPONSE_OPTIONS = [
   { value: "skipped",   label: "Skipped",   color: "text-zinc-400 dark:text-zinc-500" },
 ];
 
-const RESPONSE_STATUSES = new Set(["replied", "interview", "closed", "skipped"]);
+const RESPONSE_STATUSES = new Set(["replied", "interview", "closed"]);
 
 function getOutreachValue(status: FundedStatus): string {
   return RESPONSE_STATUSES.has(status) ? "connected" : status;

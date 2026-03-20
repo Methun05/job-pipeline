@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, SlidersHorizontal, Check } from "lucide-react";
+import { RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, SlidersHorizontal, Check, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { FundedLead, FundedStatus, PipelineRun } from "@/lib/types";
 import FundedCompanyRow, { FundedCompanyMobileCard } from "@/components/FundedCompanyCard";
@@ -35,6 +35,7 @@ export default function FundedPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortKey, setSortKey]       = useState<SortKey>("date");
   const [sortDir, setSortDir]       = useState<SortDir>("desc");
+  const [search, setSearch]         = useState("");
   const filterRef                   = useRef<HTMLDivElement>(null);
 
   async function load(showSpinner = false) {
@@ -83,10 +84,22 @@ export default function FundedPage() {
   const activeLabel = FILTERS.find(f => f.value === filter)?.label ?? "Filter";
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     let rows = leads;
-    if      (filter === "active") rows = leads.filter(l => ACTIVE_STATUSES.includes(l.status));
-    else if (filter === "done")   rows = leads.filter(l => DONE_STATUSES.includes(l.status));
-    else if (filter !== "all")    rows = leads.filter(l => l.status === filter);
+
+    if (q) {
+      rows = leads.filter(l =>
+        l.companies?.name?.toLowerCase().includes(q) ||
+        l.contacts?.name?.toLowerCase().includes(q) ||
+        l.round_type?.toLowerCase().includes(q)
+      );
+    } else if (filter === "active") {
+      rows = leads.filter(l => ACTIVE_STATUSES.includes(l.status));
+    } else if (filter === "done") {
+      rows = leads.filter(l => DONE_STATUSES.includes(l.status));
+    } else if (filter !== "all") {
+      rows = leads.filter(l => l.status === filter);
+    }
 
     return [...rows].sort((a, b) => {
       const cmp = sortKey === "funding"
@@ -94,7 +107,7 @@ export default function FundedPage() {
         : (a.announced_date ?? "").localeCompare(b.announced_date ?? "");
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [leads, filter, sortKey, sortDir]);
+  }, [leads, filter, search, sortKey, sortDir]);
 
   function SortIcon({ col }: { col: SortKey }) {
     if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-30" />;
@@ -128,6 +141,18 @@ export default function FundedPage() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs text-zinc-400 dark:text-zinc-500 hidden sm:inline">{filtered.length} companies</span>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search…"
+                  className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-violet-500 w-32 sm:w-44 shadow-sm"
+                />
+              </div>
 
               {/* Filter dropdown */}
               <div className="relative" ref={filterRef}>

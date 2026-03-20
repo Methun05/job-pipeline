@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { RefreshCw, ArrowUp, ArrowDown, SlidersHorizontal, Check } from "lucide-react";
+import { RefreshCw, ArrowUp, ArrowDown, SlidersHorizontal, Check, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { JobPosting, PipelineRun } from "@/lib/types";
 import JobPostingRow, { JobPostingMobileCard } from "@/components/JobPostingCard";
@@ -32,6 +32,7 @@ export default function JobsPage() {
   const [filter, setFilter]         = useState("active");
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortDir, setSortDir]       = useState<SortDir>("desc");
+  const [search, setSearch]         = useState("");
   const filterRef                   = useRef<HTMLDivElement>(null);
 
   async function load(showSpinner = false) {
@@ -76,16 +77,28 @@ export default function JobsPage() {
   const activeLabel = FILTERS.find(f => f.value === filter)?.label ?? "Filter";
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     let rows = jobs;
-    if      (filter === "active") rows = jobs.filter(j => ACTIVE_APP.includes(j.application_status) && j.outreach_status !== "skipped");
-    else if (filter === "done")   rows = jobs.filter(j => DONE_APP.includes(j.application_status));
-    else if (filter !== "all")    rows = jobs.filter(j => j.application_status === filter);
+
+    if (q) {
+      rows = jobs.filter(j =>
+        j.job_title?.toLowerCase().includes(q) ||
+        j.companies?.name?.toLowerCase().includes(q) ||
+        j.source?.toLowerCase().includes(q)
+      );
+    } else if (filter === "active") {
+      rows = jobs.filter(j => ACTIVE_APP.includes(j.application_status) && j.outreach_status !== "skipped");
+    } else if (filter === "done") {
+      rows = jobs.filter(j => DONE_APP.includes(j.application_status));
+    } else if (filter !== "all") {
+      rows = jobs.filter(j => j.application_status === filter);
+    }
 
     return [...rows].sort((a, b) => {
       const cmp = (a.posted_at ?? a.created_at ?? "").localeCompare(b.posted_at ?? b.created_at ?? "");
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [jobs, filter, sortDir]);
+  }, [jobs, filter, search, sortDir]);
 
   if (loading) {
     return (
@@ -112,6 +125,18 @@ export default function JobsPage() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs text-zinc-400 dark:text-zinc-500 hidden sm:inline">{filtered.length} jobs</span>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search…"
+                  className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-violet-500 w-32 sm:w-44 shadow-sm"
+                />
+              </div>
 
               {/* Filter dropdown */}
               <div className="relative" ref={filterRef}>
