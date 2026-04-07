@@ -45,11 +45,11 @@ It runs every day at **8 AM IST** and results appear at **https://tracker.methun
 
 **Sources (11 total):**
 - web3career (scraper — /design-jobs page, no API key)
-- cryptojobslist (RSS)
+- cryptojobslist (__NEXT_DATA__ scraper — /design page, RSS was blocked Apr 2026; Cloudflare blocks GitHub Actions IPs — works locally, 403 from CI)
 - cryptocurrencyjobs (RSS)
 - dragonfly (scraper — Getro platform, jobs.dragonfly.xyz)
 - arbitrum (scraper — Getro platform, jobs.arbitrum.io)
-- hashtagweb3 (scraper — hashtagweb3.com, JSON-LD schema, 260+ listings)
+- hashtagweb3 (REST API — hashtagweb3.com/api/jobs, ~1100 jobs, rewrote Apr 7 2026 after site redesigned to Firebase SPA)
 - talentweb3 (recruiter aggregator — skip contact search for this source)
 - solana_jobs (scraper — Getro platform, jobs.solana.com)
 - paradigm (scraper — paradigm.xyz/jobs, 600+ portfolio company jobs, has salary data)
@@ -591,10 +591,47 @@ Unit mocks are fine for testing pure logic (dedup fuzzy matching, filter thresho
 
 ---
 
+## Known bugs fixed (Apr 7 2026)
+
+### hashtagweb3 fetcher broken (site redesigned to Firebase SPA)
+
+**Symptom:** `hashtagweb3: no JobPosting JSON-LD entries found` every run. Pipeline completed successfully so no alert was visible in dashboard.
+
+**Root cause:** hashtagweb3.com fully rebuilt as a Firebase/Firestore-backed client-side SPA. JSON-LD job postings are gone. Firebase security rules block all anonymous access.
+
+**Fix:** Rewrote `pipeline/fetchers/hashtagweb3.py` to use the undocumented public REST API at `https://hashtagweb3.com/api/jobs`. Returns ~1100 jobs as a flat JSON array. Fields: `id`, `title`, `company`, `link`, `date`, `source`. No auth required.
+
+---
+
+### cryptojobslist RSS blocked
+
+**Symptom:** `cryptojobslist` returned 0 results silently. RSS endpoint `api.cryptojobslist.com/jobs.rss` returns 403 or empty feed.
+
+**Fix:** Rewrote `pipeline/fetchers/cryptojobslist_rss.py` to scrape the `/design` page via `__NEXT_DATA__` SSR instead of RSS. Fetches `props.pageProps.jobs` — returns 6 active design jobs.
+
+**Ongoing known limitation:** cryptojobslist uses Cloudflare which blocks GitHub Actions datacenter IPs. Works locally, 403 from CI. This is an IP-level block — no workaround without a proxy. The dashboard source-health banner will flag it when blocked. Locally verified to return 6 jobs.
+
+---
+
+### Source health monitoring — no visibility when fetchers break silently
+
+**Problem:** Pipeline always completed with `status: "completed"` even when fetchers failed. Dashboard showed no warning. Jobs were missed for days without knowing.
+
+**Fix:**
+1. `pipeline/main.py` — `Stats.source_counts` dict tracks per-source item count (`-1` = fetch error, `0` = empty, `N` = healthy). Written to `pipeline_runs.source_counts` JSONB column.
+2. `supabase/migrations/20260407_source_counts.sql` — adds `source_counts` column. **Must be run in Supabase SQL editor.**
+3. `pipeline/db.py` — saves `source_counts` with fallback if migration hasn't run.
+4. `dashboard/components/PipelineStatus.tsx` — now shows warning banner on **completed** runs (not just failed) when any of the 6 active sources (`web3career`, `cryptojobslist`, `cryptocurrencyjobs`, `hashtagweb3`, `paradigm`, `a16zcrypto`) returns -1 (error) or 0 (silent empty). Boards that are often empty (`sui_jobs`, `dragonfly`, etc.) don't trigger false alarms.
+
+**Verified Apr 7 2026:** `source_counts` populating correctly in Supabase. Dashboard banner will show `cryptojobslist: fetch error` on next page load.
+
+---
+
 ## Deferred / future work
 
 - Re-add RSS sources to Track A (TechCrunch, EU Startups etc) when ready
 - Salary + visa sponsorship extraction in pipeline Gemini prompt (fields exist in DB, never populated by pipeline — only by on-demand dashboard button)
+- cryptojobslist from CI: currently Cloudflare-blocked from GitHub Actions. Consider proxy or alternative data source if this becomes a problem.
 
 ---
 
