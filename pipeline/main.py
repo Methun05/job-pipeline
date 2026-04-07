@@ -52,6 +52,7 @@ class Stats:
         self.track_b_skipped_dedup   = 0
         self.track_b_skipped_filter  = 0
         self.errors: list[dict]      = []
+        self.source_counts: dict     = {}   # {source_name: items_fetched} — -1 means fetch error
 
     def add_error(self, source: str, message: str):
         self.errors.append({
@@ -70,6 +71,7 @@ class Stats:
             "track_b_skipped_dedup":  self.track_b_skipped_dedup,
             "track_b_skipped_filter": self.track_b_skipped_filter,
             "errors":                 self.errors,
+            "source_counts":          self.source_counts,
         }
 
 
@@ -603,8 +605,10 @@ def main():
             items = fetcher_fn()
             print(f"[{name}] Fetched {len(items)} items")
             raw_jobs.extend(items)
+            stats.source_counts[name] = len(items)
         except Exception as e:
             stats.add_error(name, str(e))
+            stats.source_counts[name] = -1  # -1 = fetch error
 
     # Role keyword filter — fast, no AI
     design_jobs = [j for j in raw_jobs if is_design_role(j)]

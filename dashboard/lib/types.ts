@@ -103,4 +103,5 @@ export interface PipelineRun {
   track_b_new: number;
   apollo_credits_remaining: number | null;
   errors: Array<{ source: string; message: string; timestamp: string }>;
+  source_counts: Record<string, number> | null;  // {source: count} — -1 means fetch error
 }

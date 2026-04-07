@@ -36,9 +36,15 @@ def complete_pipeline_run(run_id: str, stats: dict, credits: Optional[int] = Non
         "track_b_skipped_dedup":   stats.get("track_b_skipped_dedup", 0),
         "track_b_skipped_filter":  stats.get("track_b_skipped_filter", 0),
         "errors":                  stats.get("errors", []),
+        "source_counts":           stats.get("source_counts", {}),
         "apollo_credits_remaining": credits,
     }
-    get_client().table("pipeline_runs").update(payload).eq("id", run_id).execute()
+    try:
+        get_client().table("pipeline_runs").update(payload).eq("id", run_id).execute()
+    except Exception:
+        # Fallback: save without source_counts in case migration hasn't run yet
+        payload.pop("source_counts", None)
+        get_client().table("pipeline_runs").update(payload).eq("id", run_id).execute()
 
 
 def fail_pipeline_run(run_id: str, errors: list):
