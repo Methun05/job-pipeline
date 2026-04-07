@@ -9,6 +9,11 @@ Required GitHub secrets:
   RESEND_API_KEY       — get free key at resend.com (3000 emails/month free)
   ALERT_EMAIL          — email address to receive alerts (e.g. methun@gmail.com)
 
+Optional:
+  RESEND_FROM_EMAIL    — from address for alerts (default: onboarding@resend.dev)
+                         If you've verified methun.design in Resend, set this to
+                         alerts@methun.design for a cleaner sender name.
+
 If RESEND_API_KEY or ALERT_EMAIL is missing, script exits silently (no crash).
 """
 import os
@@ -26,6 +31,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 RESEND_KEY   = os.getenv("RESEND_API_KEY", "")
 ALERT_EMAIL  = os.getenv("ALERT_EMAIL", "")
+FROM_EMAIL   = os.getenv("RESEND_FROM_EMAIL", "Job Pipeline <onboarding@resend.dev>")
 
 
 def supabase_get(path: str) -> dict:
@@ -40,7 +46,7 @@ def supabase_get(path: str) -> dict:
 
 def send_email(subject: str, html: str):
     payload = json.dumps({
-        "from":    "Job Pipeline <alerts@methun.design>",
+        "from":    FROM_EMAIL,
         "to":      [ALERT_EMAIL],
         "subject": subject,
         "html":    html,

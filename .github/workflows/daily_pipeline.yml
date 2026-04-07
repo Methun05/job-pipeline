@@ -45,4 +45,5 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           RESEND_API_KEY:       ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL:          ${{ secrets.ALERT_EMAIL }}
+          RESEND_FROM_EMAIL:    ${{ secrets.RESEND_FROM_EMAIL }}
         run: python scripts/alert_on_source_issues.py
