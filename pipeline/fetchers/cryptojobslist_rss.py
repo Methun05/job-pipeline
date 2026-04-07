@@ -1,83 +1,96 @@
 """
-CryptoJobsList RSS feed — crypto/web3 jobs.
-Feed: https://api.cryptojobslist.com/jobs.rss
-
-Notes:
-- Feed returns ~15 most recent jobs across all categories (no category filter available)
-- No per-item pubDate — skip time-window filter, rely on URL dedup in pipeline
-- HTML in description stripped via BeautifulSoup
+CryptoJobsList scraper — cryptojobslist.com/design
+Scrapes the design category page via __NEXT_DATA__ SSR (RSS feed is blocked/empty as of Apr 2026).
+Returns active design jobs. URL dedup handles deduplication across runs.
 """
-import feedparser
-import html
+import json
+import re
+import requests
 from bs4 import BeautifulSoup
 from pipeline.config import HTTP_TIMEOUT
 
+PAGE_URL = "https://cryptojobslist.com/design"
+HEADERS  = {
+    "User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Accept-Encoding": "identity",  # prevent gzip — requests handles it, but this avoids any decode issues
+}
 
-RSS_URL = "https://api.cryptojobslist.com/jobs.rss"
 
-
-def _strip_html(html: str) -> str:
-    """Strip HTML tags, return plain text."""
-    if not html:
+def _strip_html(raw: str) -> str:
+    if not raw:
         return ""
-    return BeautifulSoup(html, "lxml").get_text(separator=" ", strip=True)
+    return BeautifulSoup(raw, "lxml").get_text(separator=" ", strip=True)
 
 
 def fetch() -> list[dict]:
     """
     Returns list of normalized job dicts.
-    Design role keyword filtering happens in main.py (is_design_role).
+    Design role filtering happens in main.py (is_design_role).
     No date filter — URL dedup handles deduplication across runs.
     """
     try:
-        feed = feedparser.parse(
-            RSS_URL,
-            request_headers={
-                "User-Agent": "Mozilla/5.0 (compatible; job-pipeline/1.0)",
-            },
-        )
+        resp = requests.get(PAGE_URL, headers=HEADERS, timeout=HTTP_TIMEOUT)
+        resp.raise_for_status()
     except Exception as e:
-        raise RuntimeError(f"CryptoJobsList RSS fetch failed: {e}")
+        raise RuntimeError(f"CryptoJobsList scrape failed: {e}")
 
-    if feed.bozo and not feed.entries:
-        raise RuntimeError(f"CryptoJobsList RSS parse error: {feed.bozo_exception}")
+    m = re.search(
+        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+        resp.text, re.DOTALL
+    )
+    if not m:
+        raise RuntimeError("CryptoJobsList: __NEXT_DATA__ not found in page")
+
+    try:
+        nd   = json.loads(m.group(1))
+        jobs = nd["props"]["pageProps"]["jobs"]
+    except (json.JSONDecodeError, KeyError) as e:
+        raise RuntimeError(f"CryptoJobsList: failed to parse __NEXT_DATA__: {e}")
+
+    if not isinstance(jobs, list):
+        raise RuntimeError(f"CryptoJobsList: unexpected jobs type {type(jobs)}")
 
     results = []
-    for entry in feed.entries:
+    for job in jobs:
         try:
-            title   = html.unescape(entry.get("title", "").strip())
-            link    = entry.get("link", "").strip()
-            company = entry.get("author", "") or entry.get("dc_creator", "")
+            title   = (job.get("jobTitle") or "").strip()
+            slug    = (job.get("seoSlug") or "").strip()
+            company = (job.get("companyName") or "").strip()
 
-            # Location lives in media_location or tags
-            location = ""
-            if hasattr(entry, "media_location"):
-                location = entry.media_location
-            elif hasattr(entry, "tags"):
-                # tags list — pick non-category ones as location hints
-                location = " ".join(
-                    t.term for t in entry.tags
-                    if t.term and not t.term.startswith("#")
-                )
-
-            description = _strip_html(entry.get("summary", ""))
-
-            if not title or not link:
+            if not title or not slug:
                 continue
+
+            job_url    = f"https://cryptojobslist.com/jobs/{slug}"
+            location   = (job.get("jobLocation") or "").strip()
+            posted_at  = job.get("publishedAt") or None  # ISO string
+            desc_raw   = _strip_html(job.get("jobDescription") or "")
+
+            # Salary
+            sal_str = job.get("salaryString") or ""
+            sal_min = sal_max = None
+            sal_m = re.match(r"\$?([\d,]+)[kK]?\s*[-–]\s*\$?([\d,]+)[kK]?", sal_str)
+            if sal_m:
+                def _parse_sal(s):
+                    val = int(s.replace(",", ""))
+                    return val * 1000 if val < 1000 else val
+                sal_min = _parse_sal(sal_m.group(1))
+                sal_max = _parse_sal(sal_m.group(2))
 
             results.append({
                 "job_title":       title,
-                "company_name":    company.strip(),
+                "company_name":    company,
                 "company_website": "",
-                "job_url":         link,
-                "description_raw": description,
-                "salary_min":      None,
-                "salary_max":      None,
+                "job_url":         job_url,
+                "description_raw": desc_raw,
+                "salary_min":      sal_min,
+                "salary_max":      sal_max,
                 "salary_currency": "USD",
-                "location":        location.strip(),
-                "posted_at":       None,   # feed has no per-item date
+                "location":        location,
+                "posted_at":       posted_at,
                 "source":          "cryptojobslist",
-                "raw_data":        {"guid": entry.get("id", "")},
+                "raw_data":        {"id": job.get("_id") or job.get("id", "")},
             })
         except Exception:
             continue
