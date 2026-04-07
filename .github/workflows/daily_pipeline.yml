@@ -37,13 +37,7 @@ jobs:
           BRAVE_API_KEY:        ${{ secrets.BRAVE_API_KEY }}
         run: python -m pipeline.main
 
-      - name: Check for source issues and send alert
-        # Runs even if pipeline step fails
-        if: always()
-        env:
-          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          RESEND_API_KEY:       ${{ secrets.RESEND_API_KEY }}
-          ALERT_EMAIL:          ${{ secrets.ALERT_EMAIL }}
-          RESEND_FROM_EMAIL:    ${{ secrets.RESEND_FROM_EMAIL }}
-        run: python scripts/alert_on_source_issues.py
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Pipeline failed. Check tracker.methun.design for the warning banner."
