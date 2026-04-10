@@ -33,7 +33,10 @@ export interface Contact {
   seniority: string | null;
   email: string | null;
   email_revealed: boolean;
+  email_permutations: string[] | null;
 }
+
+export type EmailStatus = "none" | "sent" | "bounced" | "followed_up" | "not_found";
 
 export interface FundedLead {
   id: string;
@@ -53,6 +56,15 @@ export interface FundedLead {
   notes: string | null;
   created_at: string;
   raw_data: { key?: string; funds?: string[]; symbol?: string; country?: string; company_type?: string } | null;
+  // Email outreach
+  outreach_email: string | null;
+  email_status: EmailStatus;
+  email_sent_at: string | null;
+  gmail_thread_id: string | null;
+  email_permutation_idx: number;
+  follow_up_sent_at: string | null;
+  credibility_score: number | null;
+  credibility_reason: string | null;
   // Joined
   companies?: Company;
   contacts?: Contact;

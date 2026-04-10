@@ -13,5 +13,9 @@ node_modules/
 dashboard/.env.local
 dashboard/.env
 
+# Gmail OAuth
+credentials.json
+gmail_token.json
+
 # macOS
 .DS_Store

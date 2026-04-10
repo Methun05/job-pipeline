@@ -2,10 +2,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { ArrowLeft, Globe, Linkedin, Mail, Twitter } from "lucide-react";
+import { ArrowLeft, Globe, Linkedin, Mail, Twitter, Send, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import ChatPanel from "@/components/ChatPanel";
-import type { FundedLead, FundedStatus } from "@/lib/types";
+import type { FundedLead, FundedStatus, EmailStatus } from "@/lib/types";
 import { Button, Textarea } from "@/components/ui";
 import CopyButton from "@/components/CopyButton";
 import { SOURCE_LABELS } from "@/components/FundedCompanyCard";
@@ -63,12 +63,19 @@ export default function FundedDetailPage() {
 
   const [lead, setLead]       = useState<FundedLead | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "chat">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "email" | "chat">("overview");
   const [notes, setNotes]     = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
-  const [emailLoading, setEmailLoading] = useState(false);
-  const [emailError, setEmailError]     = useState<string | null>(null);
+  const [emailLoading, setEmailLoading]   = useState(false);
+  const [emailError, setEmailError]       = useState<string | null>(null);
+
+  // Email send state
+  const [emailTo, setEmailTo]             = useState("");
+  const [emailSubject, setEmailSubject]   = useState("");
+  const [emailBody, setEmailBody]         = useState("");
+  const [sendLoading, setSendLoading]     = useState(false);
+  const [sendError, setSendError]         = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchLead() {
@@ -78,8 +85,21 @@ export default function FundedDetailPage() {
         .eq("id", id)
         .single();
       if (data) {
-        setLead(data as FundedLead);
-        setNotes(data.notes || "");
+        const l = data as FundedLead;
+        setLead(l);
+        setNotes(l.notes || "");
+        // Pre-fill email fields
+        setEmailTo(l.outreach_email || l.contacts?.email || "");
+        if (l.email_draft) {
+          const lines = l.email_draft.split("\n");
+          const subjectLine = lines.find(line => line.toLowerCase().startsWith("subject:"));
+          if (subjectLine) {
+            setEmailSubject(subjectLine.replace(/^subject:\s*/i, "").trim());
+            setEmailBody(lines.filter(line => !line.toLowerCase().startsWith("subject:")).join("\n").trim());
+          } else {
+            setEmailBody(l.email_draft);
+          }
+        }
       }
       setLoading(false);
     }
@@ -98,6 +118,26 @@ export default function FundedDetailPage() {
     await supabase.from("funded_leads").update({ notes }).eq("id", lead.id);
     setSaveState("saved");
     setTimeout(() => setSaveState("idle"), 2000);
+  }
+
+  async function sendEmail() {
+    if (!lead || !emailTo || !emailSubject || !emailBody) return;
+    setSendLoading(true);
+    setSendError(null);
+    try {
+      const res = await fetch("/api/send-email", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ lead_id: lead.id, to: emailTo, subject: emailSubject, body: emailBody }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setLead(prev => prev ? { ...prev, email_status: "sent", email_sent_at: new Date().toISOString(), outreach_email: emailTo } : prev);
+    } catch (e: any) {
+      setSendError(e.message || "Failed to send email");
+    } finally {
+      setSendLoading(false);
+    }
   }
 
   async function findEmail() {
@@ -321,6 +361,7 @@ export default function FundedDetailPage() {
               <div className="flex">
                 {[
                   { id: "overview", label: "Company Overview" },
+                  { id: "email",    label: "✉️ Email" },
                   { id: "chat",     label: "💬 Chat" },
                 ].map(tab => (
                   <button
@@ -413,6 +454,142 @@ export default function FundedDetailPage() {
                       </p>
                     </div>
                   )}
+
+                </div>
+              )}
+
+              {/* Email Tab */}
+              {activeTab === "email" && (
+                <div className="space-y-5">
+
+                  {/* Email status banner */}
+                  {lead.email_status === "sent" && (
+                    <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                      <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <div className="text-sm text-emerald-700 dark:text-emerald-300">
+                        Email sent to <span className="font-medium">{lead.outreach_email}</span>
+                        {lead.email_sent_at && <span className="text-xs ml-2 opacity-70">{format(new Date(lead.email_sent_at), "MMM d, h:mm a")}</span>}
+                      </div>
+                    </div>
+                  )}
+                  {lead.email_status === "bounced" && (
+                    <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                      <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                      <p className="text-sm text-red-700 dark:text-red-300">Email bounced — trying next permutation automatically.</p>
+                    </div>
+                  )}
+                  {lead.email_status === "not_found" && (
+                    <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                      <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0" />
+                      <p className="text-sm text-zinc-500">All email permutations bounced — no valid address found.</p>
+                    </div>
+                  )}
+                  {lead.email_status === "followed_up" && (
+                    <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                      <Clock className="w-4 h-4 text-blue-500 shrink-0" />
+                      <p className="text-sm text-blue-700 dark:text-blue-300">Follow-up sent
+                        {lead.follow_up_sent_at && <span className="ml-1 opacity-70">{format(new Date(lead.follow_up_sent_at), "MMM d")}</span>}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* To field */}
+                  <div>
+                    <label className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1.5">To</label>
+                    <input
+                      type="email"
+                      value={emailTo}
+                      onChange={e => setEmailTo(e.target.value)}
+                      placeholder="founder@company.com"
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    />
+                    {!emailTo && !lead.contacts?.email && (
+                      <p className="mt-1.5 text-[11px] text-amber-600 dark:text-amber-400">No email found yet — use "Find Email" in the Contact card first.</p>
+                    )}
+                  </div>
+
+                  {/* Subject field */}
+                  <div>
+                    <label className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1.5">Subject</label>
+                    <input
+                      type="text"
+                      value={emailSubject}
+                      onChange={e => setEmailSubject(e.target.value)}
+                      placeholder="Subject line..."
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    />
+                  </div>
+
+                  {/* Body */}
+                  <div>
+                    <label className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block mb-1.5">Message</label>
+                    <textarea
+                      value={emailBody}
+                      onChange={e => setEmailBody(e.target.value)}
+                      rows={12}
+                      placeholder="Email body... or use Chat tab to have Claude write it."
+                      className="w-full px-3 py-2.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-500 resize-none leading-relaxed font-mono"
+                    />
+                  </div>
+
+                  {/* Send button */}
+                  {sendError && <p className="text-sm text-red-500 dark:text-red-400">{sendError}</p>}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={sendEmail}
+                      disabled={sendLoading || !emailTo || !emailSubject || !emailBody || lead.email_status === "sent"}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                    >
+                      <Send className="w-4 h-4" />
+                      {sendLoading ? "Sending…" : lead.email_status === "sent" ? "Sent ✓" : "Send Email"}
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("chat")}
+                      className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      Rewrite with Claude
+                    </button>
+                  </div>
+
+                  {/* Follow-up section */}
+                  {lead.email_status === "sent" && lead.follow_up_message && (() => {
+                    const daysSinceSent = lead.email_sent_at
+                      ? Math.floor((Date.now() - new Date(lead.email_sent_at).getTime()) / 86400000)
+                      : 0;
+                    if (daysSinceSent < 5) return (
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500">Follow-up available in {5 - daysSinceSent} day{5 - daysSinceSent !== 1 ? "s" : ""}.</p>
+                    );
+                    return (
+                      <div className="border-t border-zinc-100 dark:border-zinc-800 pt-5">
+                        <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-3">Follow-up Ready</p>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed mb-4 whitespace-pre-wrap">{lead.follow_up_message}</p>
+                        <button
+                          onClick={async () => {
+                            setSendLoading(true);
+                            setSendError(null);
+                            try {
+                              const res = await fetch("/api/send-email", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ lead_id: lead.id, to: emailTo, subject: `Re: ${emailSubject}`, body: lead.follow_up_message }),
+                              });
+                              const data = await res.json();
+                              if (data.error) throw new Error(data.error);
+                              setLead(prev => prev ? { ...prev, email_status: "followed_up", follow_up_sent_at: new Date().toISOString() } : prev);
+                            } catch (e: any) {
+                              setSendError(e.message);
+                            } finally {
+                              setSendLoading(false);
+                            }
+                          }}
+                          disabled={sendLoading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-300 dark:border-blue-700 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
+                        >
+                          <Send className="w-3.5 h-3.5" /> Send Follow-up
+                        </button>
+                      </div>
+                    );
+                  })()}
 
                 </div>
               )}
