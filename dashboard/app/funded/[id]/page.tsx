@@ -302,8 +302,8 @@ export default function FundedDetailPage() {
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* Left Column — company + contact info */}
-        <div className="lg:col-span-8">
+        {/* Left Column — company + contact info (compact sidebar) */}
+        <div className="lg:col-span-4">
 
           {/* Company + Contact Card */}
           <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
@@ -469,7 +469,7 @@ export default function FundedDetailPage() {
           {/* Notes */}
           <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
             <h3 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Your Notes</h3>
-            <Textarea value={notes} onChange={setNotes} placeholder="Research notes, key insights..." className="mb-3 min-h-[120px]" />
+            <Textarea value={notes} onChange={setNotes} placeholder="Research notes, key insights..." className="mb-3 min-h-[80px]" />
             <Button variant="ghost" size="sm" onClick={saveNotes} disabled={saveState !== "idle"} className="w-full justify-center">
               {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved ✓" : "Save Notes"}
             </Button>
@@ -477,9 +477,9 @@ export default function FundedDetailPage() {
 
         </div>
 
-        {/* Right Column — tabs */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden h-full flex flex-col min-h-[500px] lg:min-h-[600px]">
+        {/* Right Column — tabs (main content) */}
+        <div className="lg:col-span-8 space-y-6">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden flex flex-col">
 
             {/* Tabs */}
             <div className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 relative">
