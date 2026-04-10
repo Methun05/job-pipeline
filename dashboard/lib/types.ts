@@ -106,14 +106,33 @@ export interface JobPosting {
   contacts?: Contact;
 }
 
+export interface ApiUsageEntry {
+  calls: number;
+  key_in_use?: string;
+}
+
+export interface FallbackEvent {
+  timestamp: string;
+  from: string;
+  to: string;
+  reason: string;
+  context: string;
+}
+
 export interface PipelineRun {
   id: string;
   started_at: string;
   completed_at: string | null;
   status: "running" | "completed" | "failed";
   track_a_new: number;
+  track_a_skipped_dedup: number;
+  track_a_skipped_filter: number;
   track_b_new: number;
+  track_b_skipped_dedup: number;
+  track_b_skipped_filter: number;
   apollo_credits_remaining: number | null;
   errors: Array<{ source: string; message: string; timestamp: string }>;
   source_counts: Record<string, number> | null;  // {source: count} — -1 means fetch error
+  api_usage: Record<string, ApiUsageEntry> | null;
+  fallback_events: FallbackEvent[] | null;
 }

@@ -1,11 +1,15 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Briefcase, ChevronLeft, ChevronRight, Sun, Moon } from "lucide-react";
+import { Building2, Briefcase, ChevronLeft, ChevronRight, Sun, Moon, Settings2 } from "lucide-react";
 
 const NAV = [
-  { href: "/funded", label: "Funded Companies", icon: Building2 },
-  { href: "/jobs",   label: "Job Postings",      icon: Briefcase },
+  { href: "/funded",   label: "Funded Companies", icon: Building2  },
+  { href: "/jobs",     label: "Job Postings",      icon: Briefcase  },
+];
+
+const NAV_BOTTOM = [
+  { href: "/settings", label: "Health & Settings", icon: Settings2  },
 ];
 
 export default function Sidebar({
@@ -63,6 +67,28 @@ export default function Sidebar({
           );
         })}
       </nav>
+
+      {/* Bottom nav (Settings) */}
+      <div className="px-2 pb-1">
+        {NAV_BOTTOM.map(({ href, label, icon: Icon }) => {
+          const active = path.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              title={collapsed ? label : undefined}
+              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${
+                active
+                  ? "bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
+                  : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              } ${collapsed ? "justify-center" : ""}`}
+            >
+              <Icon className="w-3.5 h-3.5 shrink-0" />
+              {!collapsed && label}
+            </Link>
+          );
+        })}
+      </div>
 
       {/* Theme toggle + Collapse */}
       <div className="px-2 pb-4 pt-2 border-t border-zinc-200 dark:border-zinc-800 space-y-0.5">
