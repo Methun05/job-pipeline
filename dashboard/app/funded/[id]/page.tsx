@@ -543,7 +543,7 @@ export default function FundedDetailPage() {
                       <div>
                         <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Email Address Finder</p>
                         <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">
-                          {validated ? "Validated via ZeroBounce — click any address to use it" : "Generates common patterns from name + domain. Add ZeroBounce key to validate."}
+                          Generated from name + domain. Pick the one that looks right and send.
                         </p>
                       </div>
                       <button
@@ -575,7 +575,7 @@ export default function FundedDetailPage() {
                             "catch-all":"Catch-all",
                             invalid:    "Invalid",
                             unknown:    "Unknown",
-                            pending:    "Not validated",
+                            pending:    "Best guess",
                             skipped:    "Skipped",
                           };
                           const isSelected = emailTo === p.email;
