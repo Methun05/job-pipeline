@@ -11,6 +11,7 @@ No apollo_person_id — this is a pure discovery fallback, not a CRM lookup.
 import re
 import requests
 from pipeline.config import EXA_API_KEY, EXA_API_KEY_2, TAVILY_API_KEY, HTTP_TIMEOUT
+from pipeline import tracker
 
 # ── LinkedIn person profile URL pattern ────────────────────────────────────────
 # Matches: linkedin.com/in/firstname-lastname
@@ -112,8 +113,11 @@ def _exa_search_people(query: str) -> list[dict]:
             )
             if resp.status_code in (429, 402):
                 print(f"[Exa people_finder] Key {i+1} quota hit — rotating")
+                tracker.record_fallback(f"exa_key{i+1}", f"exa_key{i+2}", "quota", "people_finder")
+                tracker.record_key("exa", f"key{i+2}")
                 continue
             resp.raise_for_status()
+            tracker.record_call("exa")
             data = resp.json()
             # Exa returns results as list of objects with url, title, etc.
             raw = data.get("results") or []
@@ -135,6 +139,8 @@ def _exa_search_people(query: str) -> list[dict]:
             is_quota = any(kw in err for kw in ("quota", "rate", "429", "402", "limit", "exceeded"))
             if is_quota and i + 1 < len(keys):
                 print(f"[Exa people_finder] Key {i+1} error ({e}) — rotating")
+                tracker.record_fallback(f"exa_key{i+1}", f"exa_key{i+2}", "quota", "people_finder")
+                tracker.record_key("exa", f"key{i+2}")
                 continue
             print(f"[Exa people_finder] Error: {e}")
             return []
@@ -153,6 +159,7 @@ def _tavily_search_people(query: str) -> list[dict]:
     """
     if not TAVILY_API_KEY:
         return []
+    tracker.record_call("tavily")
     try:
         resp = requests.post(
             _TAVILY_URL,
@@ -200,6 +207,7 @@ def find_person(company_name: str, domain: str) -> dict | None:
             return result
 
     # ── Step 2: Tavily ────────────────────────────────────────────────────────
+    tracker.record_fallback("exa", "tavily", "no_results", "people_finder")
     tavily_results = _tavily_search_people(query)
     if tavily_results:
         result = _extract_from_results(tavily_results)

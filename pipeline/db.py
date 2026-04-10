@@ -25,7 +25,7 @@ def start_pipeline_run() -> str:
     return res.data[0]["id"]
 
 
-def complete_pipeline_run(run_id: str, stats: dict, credits: Optional[int] = None):
+def complete_pipeline_run(run_id: str, stats: dict, credits: Optional[int] = None, tracking: Optional[dict] = None):
     payload = {
         "status":                  "completed",
         "completed_at":            datetime.now(timezone.utc).isoformat(),
@@ -38,12 +38,16 @@ def complete_pipeline_run(run_id: str, stats: dict, credits: Optional[int] = Non
         "errors":                  stats.get("errors", []),
         "source_counts":           stats.get("source_counts", {}),
         "apollo_credits_remaining": credits,
+        "api_usage":               (tracking or {}).get("api_usage", {}),
+        "fallback_events":         (tracking or {}).get("fallback_events", []),
     }
     try:
         get_client().table("pipeline_runs").update(payload).eq("id", run_id).execute()
     except Exception:
-        # Fallback: save without source_counts in case migration hasn't run yet
+        # Fallback: save without new JSONB columns in case migration hasn't run yet
         payload.pop("source_counts", None)
+        payload.pop("api_usage", None)
+        payload.pop("fallback_events", None)
         get_client().table("pipeline_runs").update(payload).eq("id", run_id).execute()
 
 

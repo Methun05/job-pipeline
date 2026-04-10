@@ -15,6 +15,7 @@ import requests
 from pipeline.config import BRAVE_API_KEY, HTTP_TIMEOUT
 from pipeline.enrichment.exa_finder import find_twitter_handle as _exa_find
 from pipeline.enrichment.tavily_finder import find_twitter_handle as _tavily_find
+from pipeline import tracker
 
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 
@@ -58,6 +59,7 @@ def _brave_find(name: str, company_name: str) -> tuple[str, str] | tuple[None, N
         return None, None
 
     query = f'"{name}" site:x.com "{company_name}"'
+    tracker.record_call("brave")
     try:
         resp = requests.get(
             BRAVE_SEARCH_URL,
@@ -101,9 +103,11 @@ def find_twitter_handle(name: str, company_name: str) -> tuple[str, str] | tuple
         return url, confidence
 
     # Step 2: Tavily
+    tracker.record_fallback("exa", "tavily", "no_results", "twitter_finder")
     url, confidence = _tavily_find(name, company_name)
     if url:
         return url, confidence
 
     # Step 3: Brave
+    tracker.record_fallback("tavily", "brave", "no_results", "twitter_finder")
     return _brave_find(name, company_name)

@@ -17,6 +17,7 @@ import time
 import requests
 from pipeline.config import APOLLO_API_KEY, HTTP_TIMEOUT, APOLLO_CREDIT_ALERT
 import pipeline.db as db
+from pipeline import tracker
 
 BASE_URL     = "https://api.apollo.io/v1"
 BASE_URL_NEW = "https://api.apollo.io/api/v1"
@@ -53,6 +54,7 @@ def enrich_company(domain: str) -> dict:
     if not APOLLO_API_KEY or not domain:
         return {}
     try:
+        tracker.record_call("apollo")
         resp = requests.get(
             f"{BASE_URL}/organizations/enrich",
             params={"domain": domain},
@@ -82,6 +84,7 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
         return None
 
     time.sleep(1.2)  # stay under 50 req/min rate limit
+    tracker.record_call("apollo")
 
     titles = _titles_for_size(employee_count)
 

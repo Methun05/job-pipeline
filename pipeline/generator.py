@@ -12,6 +12,7 @@ import requests
 from google import genai
 from pipeline.config import GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_MODEL, GEMINI_ENABLED, PROFILE, HTTP_TIMEOUT
 from bs4 import BeautifulSoup
+from pipeline import tracker
 
 # ── Client pool ────────────────────────────────────────────────────────────────
 _clients: list | None = None
@@ -37,8 +38,11 @@ def _rotate_key():
     global _active_idx
     clients = _get_clients()
     if _active_idx + 1 < len(clients):
+        old_idx = _active_idx
         _active_idx += 1
         print(f"[Gemini] Primary key quota exhausted — switching to fallback key #{_active_idx + 1}")
+        tracker.record_fallback(f"gemini_key{old_idx + 1}", f"gemini_key{_active_idx + 1}", "daily_quota", "generator")
+        tracker.record_key("gemini", f"key{_active_idx + 1}")
         return True
     return False
 
@@ -61,6 +65,7 @@ def _raw_generate(prompt: str) -> str:
                     model=GEMINI_MODEL,
                     contents=prompt,
                 )
+                tracker.record_call("gemini")
                 return resp.text.strip()
             except Exception as e:
                 err = str(e)

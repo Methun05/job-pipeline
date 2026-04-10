@@ -18,6 +18,7 @@ import re
 import time
 import requests
 from pipeline.config import EXA_API_KEY, EXA_API_KEY_2, HUNTER_API_KEY, HTTP_TIMEOUT
+from pipeline import tracker
 
 # ── Exa client pool (quota rotation only — same data, double the free tier) ───
 _clients: list | None = None
@@ -42,13 +43,16 @@ def _active_client():
     return clients[_active_idx] if clients else None
 
 
-def _rotate_key() -> bool:
+def _rotate_key(context: str = "exa_finder") -> bool:
     """Rotate to next key on quota/error. Returns True if rotated."""
     global _active_idx
     clients = _get_clients()
     if _active_idx + 1 < len(clients):
+        old_idx = _active_idx
         _active_idx += 1
-        print(f"[Exa] Key {_active_idx} quota hit — rotating to key {_active_idx + 1}")
+        print(f"[Exa] Key {old_idx + 1} quota hit — rotating to key {_active_idx + 1}")
+        tracker.record_fallback(f"exa_key{old_idx + 1}", f"exa_key{_active_idx + 1}", "quota", context)
+        tracker.record_key("exa", f"key{_active_idx + 1}")
         return True
     return False
 
@@ -68,6 +72,7 @@ def _exa_search(query: str, **kwargs) -> list:
         try:
             results = client.search(query, **kwargs)
             time.sleep(0.3)
+            tracker.record_call("exa")
             return results.results  # may be [] — not an error
         except Exception as e:
             err = str(e).lower()
@@ -239,6 +244,7 @@ def find_company_domain(company_name: str) -> str | None:
             pass
 
     # ── Step 2: Tavily ────────────────────────────────────────────────────────
+    tracker.record_fallback("exa", "tavily", "no_results", "find_company_domain")
     try:
         from pipeline.enrichment.tavily_finder import find_company_domain as _tavily_domain
         return _tavily_domain(company_name)
@@ -275,10 +281,12 @@ def find_company_linkedin(company_name: str, domain: str = "") -> str | None:
             pass  # Exa fully down — move to Tavily
 
     # ── Step 2: Tavily ────────────────────────────────────────────────────────
+    tracker.record_fallback("exa", "tavily", "no_results", "find_company_linkedin")
     from pipeline.enrichment.tavily_finder import find_company_linkedin as _tavily_linkedin
     result = _tavily_linkedin(company_name, domain)
     if result:
         return result
 
     # ── Step 3: Hunter ────────────────────────────────────────────────────────
+    tracker.record_fallback("tavily", "hunter", "no_results", "find_company_linkedin")
     return hunter_enrich_company(domain, company_name).get("linkedin")

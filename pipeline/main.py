@@ -21,6 +21,7 @@ import pipeline.db as db
 import pipeline.apollo as apollo
 import pipeline.hunter as hunter
 import pipeline.generator as gen
+from pipeline import tracker
 
 from pipeline.dedup.matcher import find_company_match, normalize_domain
 from pipeline.filters.experience import classify_experience
@@ -130,10 +131,12 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
             print(f"[Apollo] Error finding contact, trying Hunter: {apollo_err}")
             contact_data = None
         if not contact_data:
+            tracker.record_fallback("apollo", "hunter", "no_results", "track_a_contact")
             contact_data = hunter.find_contact(name, domain, None)
             if contact_data:
                 print(f"[Hunter] Found contact via fallback: {contact_data.get('name')}")
         if not contact_data:
+            tracker.record_fallback("hunter", "people_finder", "no_results", "track_a_contact")
             from pipeline.enrichment.people_finder import find_person
             person = find_person(name, domain)
             if person:
@@ -352,10 +355,12 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
                 print(f"[Apollo] Error finding contact, trying Hunter: {apollo_err}")
                 contact_data = None
             if not contact_data:
+                tracker.record_fallback("apollo", "hunter", "no_results", "track_b_contact")
                 contact_data = hunter.find_contact(name, domain, None)
                 if contact_data:
                     print(f"[Hunter] Found contact via fallback: {contact_data.get('name')}")
             if not contact_data:
+                tracker.record_fallback("hunter", "people_finder", "no_results", "track_b_contact")
                 from pipeline.enrichment.people_finder import find_person
                 person = find_person(name, domain)
                 if person:
@@ -552,6 +557,7 @@ def generate_followups(stats: Stats):
 
 def main():
     print(f"[Pipeline] Starting at {datetime.now(timezone.utc).isoformat()}")
+    tracker.reset()
     run_id = db.start_pipeline_run()
     stats  = Stats()
 
@@ -653,7 +659,8 @@ def main():
             print(f"[Apollo] ⚠ LOW CREDITS: {final_credits} remaining")
 
     # ── Complete run ──────────────────────────────────────────────────────────
-    db.complete_pipeline_run(run_id, stats.to_dict(), final_credits)
+    tracking = tracker.to_dict()
+    db.complete_pipeline_run(run_id, stats.to_dict(), final_credits, tracking)
     print(f"""
 [Pipeline] Complete.
   Track A: {stats.track_a_new} new, {stats.track_a_skipped_dedup} deduped, {stats.track_a_skipped_filter} filtered

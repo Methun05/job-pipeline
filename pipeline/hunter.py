@@ -8,6 +8,7 @@ Docs: https://hunter.io/api-documentation/v2
 """
 import requests
 from pipeline.config import HUNTER_API_KEY, HTTP_TIMEOUT
+from pipeline import tracker
 
 BASE_URL = "https://api.hunter.io/v2"
 
@@ -36,6 +37,7 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
     if not domain or not HUNTER_API_KEY:
         return None
 
+    tracker.record_call("hunter")
     try:
         resp = requests.get(
             f"{BASE_URL}/domain-search",
