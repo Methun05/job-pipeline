@@ -86,6 +86,14 @@ export default function FundedDetailPage() {
   const [permError, setPermError]         = useState<string | null>(null);
   const [validated, setValidated]         = useState(false);
 
+  // Manual email entry
+  const [manualEmail, setManualEmail]     = useState("");
+  const [manualSaving, setManualSaving]   = useState(false);
+  const [manualSaved, setManualSaved]     = useState(false);
+
+  // Follow-up body (editable when no Gemini message)
+  const [followUpBody, setFollowUpBody]   = useState("");
+
   useEffect(() => {
     async function fetchLead() {
       const { data } = await supabase
@@ -183,6 +191,21 @@ export default function FundedDetailPage() {
     } finally {
       setPermLoading(false);
     }
+  }
+
+  async function saveManualEmail() {
+    if (!manualEmail || !lead?.contact_id) return;
+    setManualSaving(true);
+    await supabase.from("contacts").update({
+      email:             manualEmail,
+      email_revealed:    true,
+      email_revealed_at: new Date().toISOString(),
+    }).eq("id", lead.contact_id);
+    setEmailTo(manualEmail);
+    setManualEmail("");
+    setManualSaved(true);
+    setTimeout(() => setManualSaved(false), 3000);
+    setManualSaving(false);
   }
 
   async function findEmail() {
@@ -705,6 +728,31 @@ export default function FundedDetailPage() {
                         {lead.contacts ? `Will generate patterns for ${lead.contacts.name} @ ${lead.companies?.domain || "company domain"}` : "No contact found for this company."}
                       </p>
                     )}
+
+                    {/* Manual email entry */}
+                    <div className="border-t border-zinc-100 dark:border-zinc-800 px-4 py-3">
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-500 mb-2">Found the real address? Save it directly.</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          value={manualEmail}
+                          onChange={e => setManualEmail(e.target.value)}
+                          onKeyDown={e => e.key === "Enter" && saveManualEmail()}
+                          placeholder="name@company.com"
+                          className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                        />
+                        <button
+                          onClick={saveManualEmail}
+                          disabled={!manualEmail || manualSaving || !lead.contact_id}
+                          className="px-3 py-1.5 rounded-lg bg-zinc-800 dark:bg-zinc-700 hover:bg-zinc-700 dark:hover:bg-zinc-600 text-white text-xs font-semibold disabled:opacity-40 transition-colors whitespace-nowrap"
+                        >
+                          {manualSaving ? "Saving…" : manualSaved ? "Saved ✓" : "Save & Use"}
+                        </button>
+                      </div>
+                      {!lead.contact_id && (
+                        <p className="text-[10px] text-zinc-400 dark:text-zinc-600 mt-1.5">No contact linked to this lead yet.</p>
+                      )}
+                    </div>
                   </div>
 
                   {/* To field */}
@@ -762,12 +810,13 @@ export default function FundedDetailPage() {
                     </button>
                   </div>
 
-                  {/* Follow-up section — appears after 5 days with no reply */}
-                  {lead.email_status === "sent" && lead.follow_up_message && (() => {
+                  {/* Follow-up section — appears after initial send, unlocks after 5 days */}
+                  {lead.email_status === "sent" && (() => {
                     const daysSinceSent = lead.email_sent_at
                       ? Math.floor((Date.now() - new Date(lead.email_sent_at).getTime()) / 86400000)
                       : 0;
-                    const daysLeft = 5 - daysSinceSent;
+                    const daysLeft = Math.max(0, 5 - daysSinceSent);
+                    const followUpText = lead.follow_up_message || followUpBody;
                     return (
                       <div className="border-t border-zinc-100 dark:border-zinc-800 pt-5">
                         <div className="flex items-center justify-between mb-3">
@@ -777,19 +826,34 @@ export default function FundedDetailPage() {
                             : <span className="text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full font-medium">Ready to send</span>
                           }
                         </div>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed mb-4 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700 font-mono text-xs">
-                          {lead.follow_up_message}
-                        </p>
+                        {lead.follow_up_message ? (
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed mb-4 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700 font-mono">
+                            {lead.follow_up_message}
+                          </p>
+                        ) : (
+                          <div className="mb-4">
+                            <textarea
+                              value={followUpBody}
+                              onChange={e => setFollowUpBody(e.target.value)}
+                              rows={6}
+                              placeholder={"Write your follow-up message here, or use the Chat tab to generate one and paste it.\n\nKeep it short — 2-3 sentences max."}
+                              className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-violet-500 resize-none font-mono leading-relaxed"
+                            />
+                            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1.5">
+                              No auto-generated message — Gemini was unavailable when this lead was saved.
+                            </p>
+                          </div>
+                        )}
                         <button
                           onClick={async () => {
-                            if (daysLeft > 0) return;
+                            if (daysLeft > 0 || !followUpText) return;
                             setSendLoading(true);
                             setSendError(null);
                             try {
                               const res = await fetch("/api/send-email", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ lead_id: lead.id, to: emailTo, subject: `Re: ${emailSubject}`, body: lead.follow_up_message }),
+                                body: JSON.stringify({ lead_id: lead.id, to: emailTo, subject: `Re: ${emailSubject}`, body: followUpText, is_followup: true }),
                               });
                               const data = await res.json();
                               if (data.error) throw new Error(data.error);
@@ -800,7 +864,7 @@ export default function FundedDetailPage() {
                               setSendLoading(false);
                             }
                           }}
-                          disabled={sendLoading || daysLeft > 0}
+                          disabled={sendLoading || daysLeft > 0 || !followUpText}
                           className="flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-300 dark:border-blue-700 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Send className="w-3.5 h-3.5" /> Send Follow-up
