@@ -77,6 +77,13 @@ export default function FundedDetailPage() {
   const [sendLoading, setSendLoading]     = useState(false);
   const [sendError, setSendError]         = useState<string | null>(null);
 
+  // Permutations state
+  type PermResult = { email: string; status: "valid"|"invalid"|"catch-all"|"unknown"|"pending"|"skipped"; sub_status: string|null };
+  const [permutations, setPermutations]   = useState<PermResult[]>([]);
+  const [permLoading, setPermLoading]     = useState(false);
+  const [permError, setPermError]         = useState<string | null>(null);
+  const [validated, setValidated]         = useState(false);
+
   useEffect(() => {
     async function fetchLead() {
       const { data } = await supabase
@@ -137,6 +144,30 @@ export default function FundedDetailPage() {
       setSendError(e.message || "Failed to send email");
     } finally {
       setSendLoading(false);
+    }
+  }
+
+  async function findPermutations() {
+    if (!lead?.contacts) return;
+    setPermLoading(true);
+    setPermError(null);
+    const domain = lead.companies?.domain || lead.companies?.website?.replace(/^https?:\/\//, "").split("/")[0] || null;
+    if (!domain) { setPermError("No company domain found."); setPermLoading(false); return; }
+    try {
+      const res = await fetch("/api/validate-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_id: lead.contacts.id, contact_name: lead.contacts.name, domain }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPermutations(data.permutations);
+      setValidated(data.validated);
+      if (data.best_email) setEmailTo(data.best_email);
+    } catch (e: any) {
+      setPermError(e.message || "Failed to generate permutations");
+    } finally {
+      setPermLoading(false);
     }
   }
 
@@ -462,36 +493,123 @@ export default function FundedDetailPage() {
               {activeTab === "email" && (
                 <div className="space-y-5">
 
-                  {/* Email status banner */}
+                  {/* Status banner — shows current email state clearly */}
                   {lead.email_status === "sent" && (
-                    <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-                      <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <div className="text-sm text-emerald-700 dark:text-emerald-300">
-                        Email sent to <span className="font-medium">{lead.outreach_email}</span>
-                        {lead.email_sent_at && <span className="text-xs ml-2 opacity-70">{format(new Date(lead.email_sent_at), "MMM d, h:mm a")}</span>}
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                      <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Email sent</p>
+                        <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">
+                          To: {lead.outreach_email}
+                          {lead.email_sent_at && <span className="ml-2">{format(new Date(lead.email_sent_at), "MMM d, h:mm a")}</span>}
+                        </p>
+                        <p className="text-xs text-emerald-600/60 dark:text-emerald-400/60 mt-0.5">Waiting for reply. Follow-up unlocks after 5 days.</p>
                       </div>
                     </div>
                   )}
                   {lead.email_status === "bounced" && (
-                    <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                      <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                      <p className="text-sm text-red-700 dark:text-red-300">Email bounced — trying next permutation automatically.</p>
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Email bounced</p>
+                        <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-0.5">
+                          {lead.outreach_email} was rejected. Trying next permutation automatically.
+                        </p>
+                      </div>
                     </div>
                   )}
                   {lead.email_status === "not_found" && (
-                    <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
-                      <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0" />
-                      <p className="text-sm text-zinc-500">All email permutations bounced — no valid address found.</p>
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                      <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-red-700 dark:text-red-300">No valid email found</p>
+                        <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-0.5">All address permutations bounced. Try finding manually via LinkedIn.</p>
+                      </div>
                     </div>
                   )}
                   {lead.email_status === "followed_up" && (
-                    <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                      <Clock className="w-4 h-4 text-blue-500 shrink-0" />
-                      <p className="text-sm text-blue-700 dark:text-blue-300">Follow-up sent
-                        {lead.follow_up_sent_at && <span className="ml-1 opacity-70">{format(new Date(lead.follow_up_sent_at), "MMM d")}</span>}
-                      </p>
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                      <Clock className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Follow-up sent</p>
+                        {lead.follow_up_sent_at && <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-0.5">{format(new Date(lead.follow_up_sent_at), "MMM d, h:mm a")}</p>}
+                      </div>
                     </div>
                   )}
+
+                  {/* Email permutations finder */}
+                  <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-700">
+                      <div>
+                        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Email Address Finder</p>
+                        <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                          {validated ? "Validated via ZeroBounce — click any address to use it" : "Generates common patterns from name + domain. Add ZeroBounce key to validate."}
+                        </p>
+                      </div>
+                      <button
+                        onClick={findPermutations}
+                        disabled={permLoading || !lead.contacts}
+                        className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors whitespace-nowrap"
+                      >
+                        {permLoading ? "Finding…" : "Find Addresses"}
+                      </button>
+                    </div>
+
+                    {permError && (
+                      <p className="px-4 py-3 text-xs text-red-500">{permError}</p>
+                    )}
+
+                    {permutations.length > 0 && (
+                      <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        {permutations.map((p, i) => {
+                          const statusColors: Record<string, string> = {
+                            valid:      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+                            "catch-all":"bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+                            invalid:    "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                            unknown:    "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
+                            pending:    "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500",
+                            skipped:    "bg-zinc-100 text-zinc-300 dark:bg-zinc-800 dark:text-zinc-600",
+                          };
+                          const statusLabel: Record<string, string> = {
+                            valid:      "Valid",
+                            "catch-all":"Catch-all",
+                            invalid:    "Invalid",
+                            unknown:    "Unknown",
+                            pending:    "Not validated",
+                            skipped:    "Skipped",
+                          };
+                          const isSelected = emailTo === p.email;
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => setEmailTo(p.email)}
+                              disabled={p.status === "invalid"}
+                              className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40 ${isSelected ? "bg-violet-50 dark:bg-violet-900/20" : ""} disabled:opacity-40 disabled:cursor-not-allowed`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${isSelected ? "border-violet-500" : "border-zinc-300 dark:border-zinc-600"}`}>
+                                  {isSelected && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+                                </div>
+                                <span className="text-sm font-mono text-zinc-800 dark:text-zinc-200 truncate">{p.email}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0 ml-3">
+                                {p.sub_status && <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{p.sub_status}</span>}
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusColors[p.status] ?? statusColors.unknown}`}>
+                                  {statusLabel[p.status] ?? p.status}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {permutations.length === 0 && !permLoading && !permError && (
+                      <p className="px-4 py-4 text-xs text-zinc-400 dark:text-zinc-500">
+                        {lead.contacts ? `Will generate patterns for ${lead.contacts.name} @ ${lead.companies?.domain || "company domain"}` : "No contact found for this company."}
+                      </p>
+                    )}
+                  </div>
 
                   {/* To field */}
                   <div>
@@ -503,9 +621,6 @@ export default function FundedDetailPage() {
                       placeholder="founder@company.com"
                       className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
                     />
-                    {!emailTo && !lead.contacts?.email && (
-                      <p className="mt-1.5 text-[11px] text-amber-600 dark:text-amber-400">No email found yet — use "Find Email" in the Contact card first.</p>
-                    )}
                   </div>
 
                   {/* Subject field */}
@@ -526,18 +641,18 @@ export default function FundedDetailPage() {
                     <textarea
                       value={emailBody}
                       onChange={e => setEmailBody(e.target.value)}
-                      rows={12}
-                      placeholder="Email body... or use Chat tab to have Claude write it."
+                      rows={10}
+                      placeholder="Email body — or open Chat tab to have Claude write or rewrite it."
                       className="w-full px-3 py-2.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-500 resize-none leading-relaxed font-mono"
                     />
                   </div>
 
-                  {/* Send button */}
+                  {/* Actions */}
                   {sendError && <p className="text-sm text-red-500 dark:text-red-400">{sendError}</p>}
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 flex-wrap">
                     <button
                       onClick={sendEmail}
-                      disabled={sendLoading || !emailTo || !emailSubject || !emailBody || lead.email_status === "sent"}
+                      disabled={sendLoading || !emailTo || !emailSubject || !emailBody || lead.email_status === "sent" || lead.email_status === "followed_up"}
                       className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                     >
                       <Send className="w-4 h-4" />
@@ -551,20 +666,27 @@ export default function FundedDetailPage() {
                     </button>
                   </div>
 
-                  {/* Follow-up section */}
+                  {/* Follow-up section — appears after 5 days with no reply */}
                   {lead.email_status === "sent" && lead.follow_up_message && (() => {
                     const daysSinceSent = lead.email_sent_at
                       ? Math.floor((Date.now() - new Date(lead.email_sent_at).getTime()) / 86400000)
                       : 0;
-                    if (daysSinceSent < 5) return (
-                      <p className="text-xs text-zinc-400 dark:text-zinc-500">Follow-up available in {5 - daysSinceSent} day{5 - daysSinceSent !== 1 ? "s" : ""}.</p>
-                    );
+                    const daysLeft = 5 - daysSinceSent;
                     return (
                       <div className="border-t border-zinc-100 dark:border-zinc-800 pt-5">
-                        <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-3">Follow-up Ready</p>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed mb-4 whitespace-pre-wrap">{lead.follow_up_message}</p>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Follow-up</p>
+                          {daysLeft > 0
+                            ? <span className="text-[11px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">Unlocks in {daysLeft} day{daysLeft !== 1 ? "s" : ""}</span>
+                            : <span className="text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full font-medium">Ready to send</span>
+                          }
+                        </div>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed mb-4 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700 font-mono text-xs">
+                          {lead.follow_up_message}
+                        </p>
                         <button
                           onClick={async () => {
+                            if (daysLeft > 0) return;
                             setSendLoading(true);
                             setSendError(null);
                             try {
@@ -582,8 +704,8 @@ export default function FundedDetailPage() {
                               setSendLoading(false);
                             }
                           }}
-                          disabled={sendLoading}
-                          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-300 dark:border-blue-700 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
+                          disabled={sendLoading || daysLeft > 0}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-300 dark:border-blue-700 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Send className="w-3.5 h-3.5" /> Send Follow-up
                         </button>
