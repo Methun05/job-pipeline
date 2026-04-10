@@ -6,9 +6,13 @@ find_email():   email finder by first + last + domain (free tier: 25 finder requ
 
 Docs: https://hunter.io/api-documentation/v2
 """
+import time
 import requests
 from pipeline.config import HUNTER_API_KEY, HTTP_TIMEOUT
 from pipeline import tracker
+
+# Hunter free tier: ~6 req/min before 429. 12s gap keeps us safely under.
+_HUNTER_RATE_SLEEP = 12
 
 BASE_URL = "https://api.hunter.io/v2"
 
@@ -38,6 +42,7 @@ def find_contact(company_name: str, domain: str, employee_count: int | None) -> 
         return None
 
     tracker.record_call("hunter")
+    time.sleep(_HUNTER_RATE_SLEEP)
     try:
         resp = requests.get(
             f"{BASE_URL}/domain-search",

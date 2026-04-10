@@ -81,6 +81,11 @@ def _raw_generate(prompt: str) -> str:
                         print("[Gemini] 429 rate limit — waiting 60s before retry...")
                         time.sleep(60)
                         continue
+                if "503" in err and retry == 0:
+                    # Transient server overload — wait 20s and retry once
+                    print("[Gemini] 503 unavailable — waiting 20s before retry...")
+                    time.sleep(20)
+                    continue
                 raise
 
     raise RuntimeError("All Gemini API keys failed.")
