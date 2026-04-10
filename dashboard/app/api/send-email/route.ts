@@ -4,10 +4,12 @@ import { createClient } from "@supabase/supabase-js";
 import path from "path";
 import fs from "fs";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)!
+  );
+}
 
 function getOAuthClient() {
   // On Vercel: read from env var. Locally: read from file.
@@ -71,6 +73,7 @@ export async function POST(req: NextRequest) {
     const messageId = response.data.id ?? null;
 
     // Save send state to DB
+    const supabase = getSupabase();
     await supabase
       .from("funded_leads")
       .update({
