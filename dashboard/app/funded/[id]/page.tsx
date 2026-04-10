@@ -299,11 +299,11 @@ export default function FundedDetailPage() {
         </div>
       </div>
 
-      {/* Two Column Layout */}
+      {/* Two Column Layout — tabs first on mobile, sidebar below */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* Left Column */}
-        <div className="lg:col-span-4 space-y-6">
+        {/* Right Column — rendered first in DOM so it appears first on mobile */}
+        <div className="lg:col-span-8 lg:order-2">
 
           {/* Company + Contact Card */}
           <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
@@ -477,13 +477,13 @@ export default function FundedDetailPage() {
 
         </div>
 
-        {/* Right Column */}
-        <div className="lg:col-span-8">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden h-full flex flex-col min-h-[600px]">
+        {/* Left Column */}
+        <div className="lg:col-span-4 lg:order-1 space-y-6">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden h-full flex flex-col min-h-[500px] lg:min-h-[600px]">
 
             {/* Tabs */}
-            <div className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-              <div className="flex">
+            <div className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 relative">
+              <div className="flex overflow-x-auto scrollbar-none [mask-image:linear-gradient(to_right,black_80%,transparent_100%)]">
                 {[
                   { id: "overview", label: "Company Overview" },
                   { id: "email",    label: "✉️ Email" },
@@ -505,7 +505,7 @@ export default function FundedDetailPage() {
             </div>
 
             {/* Tab Content */}
-            <div className="p-6 flex-1 overflow-y-auto">
+            <div className="p-4 md:p-6 flex-1 overflow-y-auto">
 
               {/* Overview Tab */}
               {activeTab === "overview" && (
@@ -680,14 +680,16 @@ export default function FundedDetailPage() {
                               disabled={p.status === "invalid"}
                               className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40 ${isSelected ? "bg-violet-50 dark:bg-violet-900/20" : ""} disabled:opacity-40 disabled:cursor-not-allowed`}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                 <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${isSelected ? "border-violet-500" : "border-zinc-300 dark:border-zinc-600"}`}>
                                   {isSelected && <div className="w-2 h-2 rounded-full bg-violet-500" />}
                                 </div>
-                                <span className="text-sm font-mono text-zinc-800 dark:text-zinc-200 truncate">{p.email}</span>
+                                <div className="min-w-0 flex-1">
+                                  <span className="text-sm font-mono text-zinc-800 dark:text-zinc-200 block truncate">{p.email}</span>
+                                  {p.sub_status && <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{p.sub_status}</span>}
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2 shrink-0 ml-3">
-                                {p.sub_status && <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{p.sub_status}</span>}
+                              <div className="shrink-0 ml-2">
                                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusColors[p.status] ?? statusColors.unknown}`}>
                                   {statusLabel[p.status] ?? p.status}
                                 </span>
