@@ -299,11 +299,11 @@ export default function FundedDetailPage() {
         </div>
       </div>
 
-      {/* Two Column Layout — tabs first on mobile, sidebar below */}
+      {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* Right Column — rendered first in DOM so it appears first on mobile */}
-        <div className="lg:col-span-8 lg:order-2">
+        {/* Left Column — company + contact info */}
+        <div className="lg:col-span-8">
 
           {/* Company + Contact Card */}
           <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
@@ -477,8 +477,8 @@ export default function FundedDetailPage() {
 
         </div>
 
-        {/* Left Column */}
-        <div className="lg:col-span-4 lg:order-1 space-y-6">
+        {/* Right Column — tabs */}
+        <div className="lg:col-span-4 space-y-6">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden h-full flex flex-col min-h-[500px] lg:min-h-[600px]">
 
             {/* Tabs */}
