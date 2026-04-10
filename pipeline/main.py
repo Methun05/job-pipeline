@@ -133,6 +133,12 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
             contact_data = hunter.find_contact(name, domain, None)
             if contact_data:
                 print(f"[Hunter] Found contact via fallback: {contact_data.get('name')}")
+        if not contact_data:
+            from pipeline.enrichment.people_finder import find_person
+            person = find_person(name, domain)
+            if person:
+                contact_data = person  # same shape as apollo/hunter output
+                print(f"[people_finder] Found via Exa/Tavily: {person.get('name')}")
 
         if contact_data:
             # Enrich company record with org data
@@ -349,6 +355,12 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
                 contact_data = hunter.find_contact(name, domain, None)
                 if contact_data:
                     print(f"[Hunter] Found contact via fallback: {contact_data.get('name')}")
+            if not contact_data:
+                from pipeline.enrichment.people_finder import find_person
+                person = find_person(name, domain)
+                if person:
+                    contact_data = person  # same shape as apollo/hunter output
+                    print(f"[people_finder] Found via Exa/Tavily: {person.get('name')}")
 
         if contact_data:
             # Enrich company record with org data
