@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { ArrowLeft, Globe, Linkedin, Mail, Twitter, Send, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import ChatPanel from "@/components/ChatPanel";
-import type { FundedLead, FundedStatus, EmailStatus } from "@/lib/types";
+import type { FundedLead, FundedStatus, EmailStatus, Contact } from "@/lib/types";
 import { Button, Textarea } from "@/components/ui";
 import CopyButton from "@/components/CopyButton";
 import { SOURCE_LABELS } from "@/components/FundedCompanyCard";
@@ -64,6 +64,8 @@ export default function FundedDetailPage() {
   const [lead, setLead]       = useState<FundedLead | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "email" | "chat">("overview");
+  const [allContacts, setAllContacts]         = useState<Contact[]>([]);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [notes, setNotes]     = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
@@ -105,6 +107,18 @@ export default function FundedDetailPage() {
             setEmailBody(lines.filter(line => !line.toLowerCase().startsWith("subject:")).join("\n").trim());
           } else {
             setEmailBody(l.email_draft);
+          }
+        }
+        // Fetch all contacts for this company
+        if (data.company_id) {
+          const { data: contacts } = await supabase
+            .from("contacts")
+            .select("*")
+            .eq("company_id", data.company_id)
+            .order("created_at", { ascending: true });
+          if (contacts && contacts.length > 0) {
+            setAllContacts(contacts as Contact[]);
+            setSelectedContactId(data.contact_id ?? contacts[0].id);
           }
         }
       }
@@ -323,51 +337,131 @@ export default function FundedDetailPage() {
 
             {contact && (
               <div className="px-5 py-4">
-                <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">Founder / Contact</p>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 font-semibold text-sm shrink-0">
-                    {contact.name.charAt(0)}
+                <p className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">
+                  Founder / Contact{allContacts.length > 1 ? ` (${allContacts.length})` : ""}
+                </p>
+
+                {/* Multi-contact picker — only shown when 2+ contacts exist */}
+                {allContacts.length > 1 ? (
+                  <div className="space-y-1 mb-3">
+                    {allContacts.map(c => {
+                      const isSelected = c.id === selectedContactId;
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => {
+                            setSelectedContactId(c.id);
+                            setEmailTo(c.email || "");
+                          }}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors ${
+                            isSelected
+                              ? "border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20"
+                              : "border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                          }`}
+                        >
+                          {/* Radio circle */}
+                          <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                            isSelected ? "border-violet-500" : "border-zinc-300 dark:border-zinc-600"
+                          }`}>
+                            {isSelected && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+                          </div>
+                          {/* Avatar */}
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
+                            isSelected
+                              ? "bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400"
+                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+                          }`}>
+                            {c.name.charAt(0)}
+                          </div>
+                          {/* Name + title */}
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-xs font-medium truncate ${isSelected ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-700 dark:text-zinc-300"}`}>
+                              {c.name}
+                            </p>
+                            {c.title && (
+                              <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{c.title}</p>
+                            )}
+                          </div>
+                          {/* LinkedIn icon if available */}
+                          {c.linkedin_url && (
+                            <a
+                              href={c.linkedin_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="shrink-0 text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                            >
+                              <Linkedin className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{contact.name}</p>
-                    {contact.title && <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{contact.title}</p>}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {contact.linkedin_url && (
-                    <a href={contact.linkedin_url} target="_blank" rel="noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                      <Linkedin className="w-3.5 h-3.5" /> LinkedIn
-                    </a>
-                  )}
-                  {contact.twitter_url && (
-                    <a href={contact.twitter_url} target="_blank" rel="noreferrer"
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                        twitterConf === "high"
-                          ? "border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                          : "border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                      }`}>
-                      <Twitter className="w-3.5 h-3.5" />
-                      {twitterConf !== "high" && <span className="text-[10px] ml-1">unverified</span>}
-                    </a>
-                  )}
-                </div>
-                <div className="mt-3">
-                  {contact.email ? (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-                      <Mail className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 truncate">{contact.email}</span>
-                      <CopyButton text={contact.email} label="" />
+                ) : (
+                  /* Single contact — original layout */
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 font-semibold text-sm shrink-0">
+                      {contact.name.charAt(0)}
                     </div>
-                  ) : (
-                    <button onClick={findEmail} disabled={emailLoading}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors disabled:opacity-50">
-                      <Mail className="w-3.5 h-3.5" />
-                      {emailLoading ? "Finding email…" : "Find Email"}
-                    </button>
-                  )}
-                  {emailError && <p className="mt-1.5 text-[11px] text-red-500 dark:text-red-400">{emailError}</p>}
-                </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{contact.name}</p>
+                      {contact.title && <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{contact.title}</p>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Social links — always show for the active contact */}
+                {(() => {
+                  const activeContact = allContacts.length > 1
+                    ? allContacts.find(c => c.id === selectedContactId) ?? contact
+                    : contact;
+                  const activeTwitterConf = activeContact.twitter_confidence ?? null;
+                  return (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        {activeContact.linkedin_url && (
+                          <a href={activeContact.linkedin_url} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                            <Linkedin className="w-3.5 h-3.5" /> LinkedIn
+                          </a>
+                        )}
+                        {activeContact.twitter_url && (
+                          <a href={activeContact.twitter_url} target="_blank" rel="noreferrer"
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                              activeTwitterConf === "high"
+                                ? "border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                : "border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                            }`}>
+                            <Twitter className="w-3.5 h-3.5" />
+                            {activeTwitterConf !== "high" && <span className="text-[10px] ml-1">unverified</span>}
+                          </a>
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        {activeContact.email ? (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                            <Mail className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 truncate">{activeContact.email}</span>
+                            <CopyButton text={activeContact.email} label="" />
+                          </div>
+                        ) : (
+                          <>
+                            <button onClick={findEmail} disabled={emailLoading}
+                              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors disabled:opacity-50">
+                              <Mail className="w-3.5 h-3.5" />
+                              {emailLoading ? "Finding email…" : "Find Email"}
+                            </button>
+                            {allContacts.length > 1 && (
+                              <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">No email — use Find Addresses in the Email tab</p>
+                            )}
+                          </>
+                        )}
+                        {emailError && <p className="mt-1.5 text-[11px] text-red-500 dark:text-red-400">{emailError}</p>}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>
