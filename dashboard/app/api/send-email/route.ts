@@ -53,7 +53,7 @@ function makeRawEmail(to: string, subject: string, body: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { lead_id, to, subject, body } = await req.json();
+    const { lead_id, contact_id, to, subject, body } = await req.json();
 
     if (!lead_id || !to || !subject || !body) {
       return NextResponse.json({ error: "Missing required fields: lead_id, to, subject, body" }, { status: 400 });
@@ -83,6 +83,19 @@ export async function POST(req: NextRequest) {
         gmail_thread_id: threadId,
       })
       .eq("id", lead_id);
+
+    // Also track per-contact if contact_id provided
+    if (contact_id) {
+      await supabase
+        .from("contacts")
+        .update({
+          outreach_email:  to,
+          email_status:    "sent",
+          email_sent_at:   new Date().toISOString(),
+          gmail_thread_id: threadId,
+        })
+        .eq("id", contact_id);
+    }
 
     return NextResponse.json({ success: true, message_id: messageId, thread_id: threadId });
   } catch (err: any) {

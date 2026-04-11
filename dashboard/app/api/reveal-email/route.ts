@@ -1,9 +1,10 @@
 /**
  * Proxy endpoint for email reveal.
  * 1. Apollo /people/match (if apollo_person_id + credits)
- * 2. Hunter.io email-finder with LinkedIn profile URL (if contact_linkedin_url)
- * 3. Hunter.io email-finder with name + domain
- * 4. Exa — search company website for publicly listed email
+ * 2. Hunter.io domain-search — free, no credit cost, matches by name
+ * 3. Hunter.io email-finder with LinkedIn profile URL (if contact_linkedin_url)
+ * 4. Hunter.io email-finder with name + domain
+ * 5. Exa — search company website for publicly listed email
  * Keeps all API keys server-side only.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   );
 
   let email: string | null = null;
-  let source: "apollo" | "hunter" | "exa" | null = null;
+  let source: "apollo" | "hunter_domain" | "hunter" | "exa" | null = null;
 
   // ── Resolve domain (used by Hunter + Exa) ─────────────────────────────────────
   const resolvedDomain: string | null = contact_domain
@@ -79,7 +80,37 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Step 2: Hunter — LinkedIn profile URL ──────────────────────────────────────
+  // ── Step 2: Hunter — domain search ────────────────────────────────────────────
+  if (!email && resolvedDomain && contact_name && process.env.HUNTER_API_KEY) {
+    try {
+      const hunterDomainRes  = await fetch(
+        `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(resolvedDomain)}&limit=10&api_key=${process.env.HUNTER_API_KEY}`
+      );
+      const hunterDomainData = await hunterDomainRes.json();
+      const emails: Array<{ first_name: string; last_name: string; value: string }> =
+        hunterDomainData?.data?.emails ?? [];
+
+      const nameLower = contact_name.toLowerCase();
+      const nameParts = nameLower.trim().split(" ");
+      const firstLower = nameParts[0] || "";
+      const lastLower  = nameParts.slice(1).join(" ") || "";
+
+      const match = emails.find(e =>
+        firstLower && lastLower &&
+        (e.first_name || "").toLowerCase().includes(firstLower) &&
+        (e.last_name  || "").toLowerCase().includes(lastLower)
+      );
+
+      if (match?.value) {
+        email  = match.value;
+        source = "hunter_domain";
+      }
+    } catch {
+      // Hunter domain-search failed — fall through
+    }
+  }
+
+  // ── Step 3: Hunter — LinkedIn profile URL ──────────────────────────────────────
   if (!email && contact_linkedin_url && process.env.HUNTER_API_KEY) {
     try {
       const hunterRes  = await fetch(
@@ -93,7 +124,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Step 3: Hunter — name + domain ────────────────────────────────────────────
+  // ── Step 4: Hunter — name + domain ────────────────────────────────────────────
   if (!email && contact_name && resolvedDomain && process.env.HUNTER_API_KEY) {
     try {
       const nameParts  = contact_name.trim().split(" ");
@@ -112,7 +143,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Step 4: Exa — search company pages for publicly listed email ───────────────
+  // ── Step 5: Exa — search company pages for publicly listed email ───────────────
   if (!email && contact_name && process.env.EXA_API_KEY) {
     try {
       const searchQuery = resolvedDomain

@@ -34,6 +34,11 @@ export interface Contact {
   email: string | null;
   email_revealed: boolean;
   email_permutations: string[] | null;
+  email_status: string | null;
+  outreach_email: string | null;
+  email_sent_at: string | null;
+  gmail_thread_id: string | null;
+  follow_up_sent_at: string | null;
 }
 
 export type EmailStatus = "none" | "sent" | "bounced" | "followed_up" | "not_found";
