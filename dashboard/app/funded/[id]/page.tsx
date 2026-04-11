@@ -110,18 +110,8 @@ export default function FundedDetailPage() {
         const l = data as FundedLead;
         setLead(l);
         setNotes(l.notes || "");
-        // Pre-fill email fields
+        // Pre-fill To field only — subject/body come from Generate draft
         setEmailTo(l.outreach_email || l.contacts?.email || "");
-        if (l.email_draft) {
-          const lines = l.email_draft.split("\n");
-          const subjectLine = lines.find(line => line.toLowerCase().startsWith("subject:"));
-          if (subjectLine) {
-            setEmailSubject(subjectLine.replace(/^subject:\s*/i, "").trim());
-            setEmailBody(lines.filter(line => !line.toLowerCase().startsWith("subject:")).join("\n").trim());
-          } else {
-            setEmailBody(l.email_draft);
-          }
-        }
         // Fetch all contacts for this company
         if (data.company_id) {
           const { data: contacts } = await supabase
