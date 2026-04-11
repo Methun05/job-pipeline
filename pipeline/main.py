@@ -129,7 +129,8 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
         # Step 1: Try LinkedIn people finder (returns multiple contacts)
         linkedin_contacts = []
         if domain or name:
-            linkedin_contacts = linkedin_find_people(name, domain)
+            co_linkedin_url = company_data.get("linkedin_url") or None
+            linkedin_contacts = linkedin_find_people(name, domain, linkedin_url=co_linkedin_url)
 
         if linkedin_contacts:
             for i, contact_data in enumerate(linkedin_contacts):
@@ -383,7 +384,8 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
             # Step 1: Try LinkedIn people finder (returns multiple contacts)
             linkedin_contacts = []
             if domain or name:
-                linkedin_contacts = linkedin_find_people(name, domain)
+                co_linkedin_url = company_data.get("linkedin_url") or None
+                linkedin_contacts = linkedin_find_people(name, domain, linkedin_url=co_linkedin_url)
 
             if linkedin_contacts:
                 for i, contact_data in enumerate(linkedin_contacts):
