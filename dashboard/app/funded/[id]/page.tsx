@@ -292,7 +292,7 @@ export default function FundedDetailPage() {
           contact_id:           c.id,
           contact_name:         c.name,
           contact_domain:       domain,
-          company_name:         lead.companies?.name,
+          company_name:         lead?.companies?.name,
           contact_linkedin_url: c.linkedin_url,
         }),
       });
