@@ -9,6 +9,7 @@ Each Exa search costs 1 Exa API call. We run 2 searches per company max.
 
 Filters applied to reduce false positives:
   1. Result text must mention the company name, domain, or LinkedIn slug
+     (whole-word match via \b — prevents "meta" matching "metamask")
   2. Profiles with "@ OtherCompany" in title (where OtherCompany != ours) are skipped
 """
 import re
@@ -56,27 +57,30 @@ def _company_tokens(company_name: str, domain: str | None, slug: str | None) -> 
     return tokens
 
 
+def _token_in_text(token: str, text: str) -> bool:
+    """Whole-word token match. Prevents 'meta' matching 'metamask', 'ark' matching 'marketplace'."""
+    return bool(re.search(rf'\b{re.escape(token)}\b', text, re.IGNORECASE))
+
+
 def _is_current_employee(result: dict, job_title: str | None, tokens: set[str]) -> bool:
     """
     Two-stage filter:
-    1. Result text must mention the company (via tokens).
+    1. Result text must mention the company (via whole-word token match).
     2. If title has "@ OtherCompany", OtherCompany must match our tokens.
     """
-    text = (
-        (result.get('text') or '') + ' ' + (result.get('title') or '')
-    ).lower()
+    text = (result.get('text') or '') + ' ' + (result.get('title') or '')
 
-    # Stage 1: company mention check
-    if not any(token in text for token in tokens):
+    # Stage 1: company mention check (whole-word — prevents substring collisions)
+    if not any(_token_in_text(token, text) for token in tokens):
         return False
 
-    # Stage 2: "@ OtherCompany" check
+    # Stage 2: "@ OtherCompany" check (also whole-word)
     if job_title:
         at_match = _AT_COMPANY_RE.search(job_title)
         if at_match:
-            other = at_match.group(1).lower().strip()
+            other = at_match.group(1).strip()
             # If OtherCompany shares no token with ours → they've moved on
-            if not any(token in other for token in tokens):
+            if not any(_token_in_text(token, other) for token in tokens):
                 return False
 
     return True
@@ -99,15 +103,22 @@ def _extract_from_result(result: dict, company_name: str, tokens: set[str]) -> d
     if 'linkedin.com/in/' not in url:
         return None
 
-    # Name from page title: "John Smith - CEO at Darklake | LinkedIn"
+    # Step 1: extract name — grab first two capitalised tokens (handles all separator styles)
+    # e.g. "John Smith - CEO at Kulipa"  OR  "Benoit Roger | Head of Compliance @Kulipa - tags"
     name, job_title = None, None
-    title_match = re.match(
-        r'^([A-Z][a-zA-Z\-\'\.]{1,20}\s+[A-Z][a-zA-Z\-\'\.]{1,25})\s*[-–|]\s*(.+?)(?:\s*\||\s+at\s+)',
-        title_field
-    )
-    if title_match:
-        name      = title_match.group(1).strip()
-        job_title = title_match.group(2).strip()
+    name_match = re.match(r'^([A-Z][a-zA-Z\-\'\.]+)\s+([A-Z][a-zA-Z\-\'\.]+)', title_field)
+    if name_match:
+        name = name_match.group(1) + ' ' + name_match.group(2)
+        # Step 2: extract title — between first separator and next section break
+        # Use space-surrounded dash (\s+[-–]\s+) or pipe as section break, not bare hyphen
+        # This keeps "Co-Founder" intact while splitting on " - " or " | "
+        rest = title_field[name_match.end():]
+        title_match = re.match(r'\s*[-–|]\s*(.+?)(?:\s+[-–]\s+|\s*[|]|$)', rest)
+        if title_match:
+            raw_title = title_match.group(1).strip()
+            # Drop trailing "at CompanyName" or "@CompanyName" — keep the role part only
+            role_match = re.match(r'^(.+?)(?:\s+at\s+|\s*@)', raw_title, re.IGNORECASE)
+            job_title = role_match.group(1).strip() if role_match else raw_title
 
     # Fallback: slug-derived name
     if not name:

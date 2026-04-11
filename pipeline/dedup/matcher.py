@@ -57,11 +57,17 @@ def find_company_match(
             if c.get("domain") and normalize_domain(c["domain"]) == domain:
                 return c["id"]
 
-    # Step 2 — fuzzy name match
-    norm_name = normalize_name(name)
+    # Step 2 — fuzzy name match with domain tiebreaker
+    # Guards against short-name collisions: "Meta" vs "Metal" score 88 (above threshold)
+    # Rule: if BOTH companies have domains and they differ → different companies, skip
+    norm_name       = normalize_name(name)
+    incoming_domain = normalize_domain(domain) if domain else None
     for c in existing_companies:
         score = fuzz.token_set_ratio(norm_name, normalize_name(c.get("name", "")))
         if score >= DEDUP_FUZZY_THRESHOLD:
+            existing_domain = normalize_domain(c.get("domain") or "")
+            if incoming_domain and existing_domain and incoming_domain != existing_domain:
+                continue   # same-sounding name but provably different domain → skip
             return c["id"]
 
     return None
