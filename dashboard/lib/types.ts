@@ -48,6 +48,7 @@ export interface FundedLead {
   company_id: string;
   contact_id: string | null;
   source: string;
+  track: string | null;
   funding_amount: number | null;
   funding_currency: string;
   round_type: string | null;
