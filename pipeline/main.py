@@ -28,6 +28,7 @@ from pipeline.filters.experience import classify_experience
 from pipeline.filters.remote_scope import detect_remote_scope
 from pipeline.enrichment.twitter_finder import find_twitter_handle
 from pipeline.enrichment.exa_finder import find_company_linkedin, find_company_domain, hunter_enrich_company
+from pipeline.enrichment.linkedin_people_finder import find_people as linkedin_find_people
 from pipeline.config import (
     DESIGN_ROLE_KEYWORDS, FUNDING_MIN_USD, FUNDING_MAX_USD, NINETY_DAY_RESET, GEMINI_ENABLED,
     CLEANUP_DAYS,
@@ -120,68 +121,99 @@ def process_funded_company(company_data: dict, existing_companies: list[dict], s
     # Add to in-memory list so later iterations benefit from dedup
     existing_companies.append({"id": company_id, "name": name, "domain": domain})
 
-    # Apollo → Hunter fallback: find contact
+    # Multi-contact: LinkedIn people finder → Apollo → Hunter → people_finder fallback
     contact_id    = None
     contact_name  = ""
     contact_title = ""
     try:
-        try:
-            contact_data = apollo.find_contact(name, domain, None)
-        except Exception as apollo_err:
-            print(f"[Apollo] Error finding contact, trying Hunter: {apollo_err}")
-            contact_data = None
-        if not contact_data:
-            tracker.record_fallback("apollo", "hunter", "no_results", "track_a_contact")
-            contact_data = hunter.find_contact(name, domain, None)
-            if contact_data:
-                print(f"[Hunter] Found contact via fallback: {contact_data.get('name')}")
-        if not contact_data:
-            tracker.record_fallback("hunter", "people_finder", "no_results", "track_a_contact")
-            from pipeline.enrichment.people_finder import find_person
-            person = find_person(name, domain)
-            if person:
-                contact_data = person  # same shape as apollo/hunter output
-                print(f"[people_finder] Found via Exa/Tavily: {person.get('name')}")
+        # Step 1: Try LinkedIn people finder (returns multiple contacts)
+        linkedin_contacts = []
+        if domain or name:
+            linkedin_contacts = linkedin_find_people(name, domain)
 
-        if contact_data:
-            # Enrich company record with org data
-            org_update = {}
-            if contact_data.get("org_website"):
-                org_update["website"] = contact_data["org_website"]
-            if contact_data.get("org_linkedin"):
-                org_update["linkedin_url"] = contact_data["org_linkedin"]
-            if org_update:
-                db.update_company(company_id, org_update)
-
-            apollo_id = contact_data.get("apollo_person_id")
-            existing_contact = db.get_contact_by_apollo_id(apollo_id) if apollo_id else None
-            if existing_contact:
-                contact_id = existing_contact["id"]
-            else:
-                # Strip internal/org keys before inserting
-                skip = {k for k in contact_data if k.startswith("org_") or k.startswith("_hunter_")}
-                contact_insert = {k: v for k, v in contact_data.items() if k not in skip}
-                # If Hunter domain search returned email directly, use it
-                hunter_email = contact_data.get("_hunter_email")
-                if hunter_email:
-                    contact_insert["email"] = hunter_email
-                    contact_insert["email_revealed"] = True
-                # Twitter: use Hunter's value if present, otherwise search Exa/Tavily/Brave
-                if contact_insert.get("twitter_url"):
-                    contact_insert["twitter_confidence"] = "high"
-                    print(f"[Twitter] From Hunter: {contact_insert['twitter_url']}")
+        if linkedin_contacts:
+            for i, contact_data in enumerate(linkedin_contacts):
+                apollo_id = contact_data.get("apollo_person_id")
+                existing_contact = db.get_contact_by_apollo_id(apollo_id) if apollo_id else None
+                if existing_contact:
+                    cid = existing_contact["id"]
                 else:
-                    try:
-                        twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
-                        if twitter_url:
-                            contact_insert["twitter_url"] = twitter_url
-                            contact_insert["twitter_confidence"] = twitter_confidence
-                            print(f"[Twitter] Found ({twitter_confidence}): {twitter_url}")
-                    except Exception:
-                        pass
-                contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
-            contact_name  = contact_data.get("name", "")
-            contact_title = contact_data.get("title", "")
+                    skip = {k for k in contact_data if k.startswith("org_") or k.startswith("_hunter_")}
+                    contact_insert = {k: v for k, v in contact_data.items() if k not in skip}
+                    # Twitter for first contact only (avoid burning API calls for all)
+                    if i == 0 and not contact_insert.get("twitter_url"):
+                        try:
+                            twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
+                            if twitter_url:
+                                contact_insert["twitter_url"] = twitter_url
+                                contact_insert["twitter_confidence"] = twitter_confidence
+                        except Exception:
+                            pass
+                    cid = db.insert_contact({**contact_insert, "company_id": company_id})
+                if i == 0:
+                    contact_id    = cid
+                    contact_name  = contact_data.get("name", "")
+                    contact_title = contact_data.get("title", "")
+        else:
+            # Fallback: existing single-contact chain (Apollo → Hunter → people_finder)
+            contact_data = None
+            try:
+                contact_data = apollo.find_contact(name, domain, None)
+            except Exception as apollo_err:
+                print(f"[Apollo] Error finding contact, trying Hunter: {apollo_err}")
+                contact_data = None
+            if not contact_data:
+                tracker.record_fallback("apollo", "hunter", "no_results", "track_a_contact")
+                contact_data = hunter.find_contact(name, domain, None)
+                if contact_data:
+                    print(f"[Hunter] Found contact via fallback: {contact_data.get('name')}")
+            if not contact_data:
+                tracker.record_fallback("hunter", "people_finder", "no_results", "track_a_contact")
+                from pipeline.enrichment.people_finder import find_person
+                person = find_person(name, domain)
+                if person:
+                    contact_data = person  # same shape as apollo/hunter output
+                    print(f"[people_finder] Found via Exa/Tavily: {person.get('name')}")
+
+            if contact_data:
+                # Enrich company record with org data
+                org_update = {}
+                if contact_data.get("org_website"):
+                    org_update["website"] = contact_data["org_website"]
+                if contact_data.get("org_linkedin"):
+                    org_update["linkedin_url"] = contact_data["org_linkedin"]
+                if org_update:
+                    db.update_company(company_id, org_update)
+
+                apollo_id = contact_data.get("apollo_person_id")
+                existing_contact = db.get_contact_by_apollo_id(apollo_id) if apollo_id else None
+                if existing_contact:
+                    contact_id = existing_contact["id"]
+                else:
+                    # Strip internal/org keys before inserting
+                    skip = {k for k in contact_data if k.startswith("org_") or k.startswith("_hunter_")}
+                    contact_insert = {k: v for k, v in contact_data.items() if k not in skip}
+                    # If Hunter domain search returned email directly, use it
+                    hunter_email = contact_data.get("_hunter_email")
+                    if hunter_email:
+                        contact_insert["email"] = hunter_email
+                        contact_insert["email_revealed"] = True
+                    # Twitter: use Hunter's value if present, otherwise search Exa/Tavily/Brave
+                    if contact_insert.get("twitter_url"):
+                        contact_insert["twitter_confidence"] = "high"
+                        print(f"[Twitter] From Hunter: {contact_insert['twitter_url']}")
+                    else:
+                        try:
+                            twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
+                            if twitter_url:
+                                contact_insert["twitter_url"] = twitter_url
+                                contact_insert["twitter_confidence"] = twitter_confidence
+                                print(f"[Twitter] Found ({twitter_confidence}): {twitter_url}")
+                        except Exception:
+                            pass
+                    contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
+                contact_name  = contact_data.get("name", "")
+                contact_title = contact_data.get("title", "")
     except Exception as e:
         stats.add_error("apollo_track_a", str(e))
 
@@ -340,72 +372,102 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
         except Exception:
             pass
 
-    # Apollo → Hunter fallback: find contact
+    # Multi-contact: LinkedIn people finder → Apollo → Hunter → people_finder fallback
     # Skip for recruiter/aggregator sources where company_name is the platform, not the hiring co
     contact_id    = None
     contact_name  = ""
     contact_title = ""
     skip_contact  = job.get("source") == "talentweb3"
     try:
-        contact_data = None
         if not skip_contact:
-            try:
-                contact_data = apollo.find_contact(name, domain, None)
-            except Exception as apollo_err:
-                print(f"[Apollo] Error finding contact, trying Hunter: {apollo_err}")
-                contact_data = None
-            if not contact_data:
-                tracker.record_fallback("apollo", "hunter", "no_results", "track_b_contact")
-                contact_data = hunter.find_contact(name, domain, None)
-                if contact_data:
-                    print(f"[Hunter] Found contact via fallback: {contact_data.get('name')}")
-            if not contact_data:
-                tracker.record_fallback("hunter", "people_finder", "no_results", "track_b_contact")
-                from pipeline.enrichment.people_finder import find_person
-                person = find_person(name, domain)
-                if person:
-                    contact_data = person  # same shape as apollo/hunter output
-                    print(f"[people_finder] Found via Exa/Tavily: {person.get('name')}")
+            # Step 1: Try LinkedIn people finder (returns multiple contacts)
+            linkedin_contacts = []
+            if domain or name:
+                linkedin_contacts = linkedin_find_people(name, domain)
 
-        if contact_data:
-            # Enrich company record with org data
-            org_update = {}
-            if contact_data.get("org_website"):
-                org_update["website"] = contact_data["org_website"]
-            if contact_data.get("org_linkedin"):
-                org_update["linkedin_url"] = contact_data["org_linkedin"]
-            if org_update:
-                db.update_company(company_id, org_update)
-
-            apollo_id = contact_data.get("apollo_person_id")
-            existing_contact = db.get_contact_by_apollo_id(apollo_id) if apollo_id else None
-            if existing_contact:
-                contact_id = existing_contact["id"]
+            if linkedin_contacts:
+                for i, contact_data in enumerate(linkedin_contacts):
+                    apollo_id = contact_data.get("apollo_person_id")
+                    existing_contact = db.get_contact_by_apollo_id(apollo_id) if apollo_id else None
+                    if existing_contact:
+                        cid = existing_contact["id"]
+                    else:
+                        skip = {k for k in contact_data if k.startswith("org_") or k.startswith("_hunter_")}
+                        contact_insert = {k: v for k, v in contact_data.items() if k not in skip}
+                        # Twitter for first contact only (avoid burning API calls for all)
+                        if i == 0 and not contact_insert.get("twitter_url"):
+                            try:
+                                twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
+                                if twitter_url:
+                                    contact_insert["twitter_url"] = twitter_url
+                                    contact_insert["twitter_confidence"] = twitter_confidence
+                            except Exception:
+                                pass
+                        cid = db.insert_contact({**contact_insert, "company_id": company_id})
+                    if i == 0:
+                        contact_id    = cid
+                        contact_name  = contact_data.get("name", "")
+                        contact_title = contact_data.get("title", "")
             else:
-                # Strip internal/org keys before inserting
-                skip = {k for k in contact_data if k.startswith("org_") or k.startswith("_hunter_")}
-                contact_insert = {k: v for k, v in contact_data.items() if k not in skip}
-                # If Hunter domain search returned email directly, use it
-                hunter_email = contact_data.get("_hunter_email")
-                if hunter_email:
-                    contact_insert["email"] = hunter_email
-                    contact_insert["email_revealed"] = True
-                # Twitter: use Hunter's value if present, otherwise search Exa/Tavily/Brave
-                if contact_insert.get("twitter_url"):
-                    contact_insert["twitter_confidence"] = "high"
-                    print(f"[Twitter] From Hunter: {contact_insert['twitter_url']}")
-                else:
-                    try:
-                        twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
-                        if twitter_url:
-                            contact_insert["twitter_url"] = twitter_url
-                            contact_insert["twitter_confidence"] = twitter_confidence
-                            print(f"[Twitter] Found ({twitter_confidence}): {twitter_url}")
-                    except Exception:
-                        pass
-                contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
-            contact_name  = contact_data.get("name", "")
-            contact_title = contact_data.get("title", "")
+                # Fallback: existing single-contact chain (Apollo → Hunter → people_finder)
+                contact_data = None
+                try:
+                    contact_data = apollo.find_contact(name, domain, None)
+                except Exception as apollo_err:
+                    print(f"[Apollo] Error finding contact, trying Hunter: {apollo_err}")
+                    contact_data = None
+                if not contact_data:
+                    tracker.record_fallback("apollo", "hunter", "no_results", "track_b_contact")
+                    contact_data = hunter.find_contact(name, domain, None)
+                    if contact_data:
+                        print(f"[Hunter] Found contact via fallback: {contact_data.get('name')}")
+                if not contact_data:
+                    tracker.record_fallback("hunter", "people_finder", "no_results", "track_b_contact")
+                    from pipeline.enrichment.people_finder import find_person
+                    person = find_person(name, domain)
+                    if person:
+                        contact_data = person  # same shape as apollo/hunter output
+                        print(f"[people_finder] Found via Exa/Tavily: {person.get('name')}")
+
+                if contact_data:
+                    # Enrich company record with org data
+                    org_update = {}
+                    if contact_data.get("org_website"):
+                        org_update["website"] = contact_data["org_website"]
+                    if contact_data.get("org_linkedin"):
+                        org_update["linkedin_url"] = contact_data["org_linkedin"]
+                    if org_update:
+                        db.update_company(company_id, org_update)
+
+                    apollo_id = contact_data.get("apollo_person_id")
+                    existing_contact = db.get_contact_by_apollo_id(apollo_id) if apollo_id else None
+                    if existing_contact:
+                        contact_id = existing_contact["id"]
+                    else:
+                        # Strip internal/org keys before inserting
+                        skip = {k for k in contact_data if k.startswith("org_") or k.startswith("_hunter_")}
+                        contact_insert = {k: v for k, v in contact_data.items() if k not in skip}
+                        # If Hunter domain search returned email directly, use it
+                        hunter_email = contact_data.get("_hunter_email")
+                        if hunter_email:
+                            contact_insert["email"] = hunter_email
+                            contact_insert["email_revealed"] = True
+                        # Twitter: use Hunter's value if present, otherwise search Exa/Tavily/Brave
+                        if contact_insert.get("twitter_url"):
+                            contact_insert["twitter_confidence"] = "high"
+                            print(f"[Twitter] From Hunter: {contact_insert['twitter_url']}")
+                        else:
+                            try:
+                                twitter_url, twitter_confidence = find_twitter_handle(contact_data.get("name", ""), name)
+                                if twitter_url:
+                                    contact_insert["twitter_url"] = twitter_url
+                                    contact_insert["twitter_confidence"] = twitter_confidence
+                                    print(f"[Twitter] Found ({twitter_confidence}): {twitter_url}")
+                            except Exception:
+                                pass
+                        contact_id = db.insert_contact({**contact_insert, "company_id": company_id})
+                    contact_name  = contact_data.get("name", "")
+                    contact_title = contact_data.get("title", "")
     except Exception as e:
         stats.add_error("apollo_track_b", str(e))
 
