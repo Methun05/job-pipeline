@@ -43,9 +43,9 @@ It runs every day at **8 AM IST** and results appear at **https://tracker.methun
 
 ## Track B — Job Postings
 
-**Sources (11 total):**
+**Sources (10 active, 1 dead):**
 - web3career (scraper — /design-jobs page, no API key)
-- cryptojobslist (__NEXT_DATA__ scraper — /design page, RSS was blocked Apr 2026; Cloudflare blocks GitHub Actions IPs — works locally, 403 from CI)
+- cryptojobslist — **PERMANENTLY DEAD** (Cloudflare blocks all server/datacenter IPs including GitHub Actions; RSS also 403; no proxy workaround planned — skip entirely)
 - cryptocurrencyjobs (RSS)
 - dragonfly (scraper — Getro platform, jobs.dragonfly.xyz)
 - arbitrum (scraper — Getro platform, jobs.arbitrum.io)
@@ -149,7 +149,12 @@ job-pipeline/
 │   │   ├── jobs/[id]/page.tsx  ← Job detail: Requirements tab + Chat tab
 │   │   │                          Requirements tab: amber card (candidate_location) + requirements bullets
 │   │   └── api/
-│   │       ├── reveal-email/route.ts       ← Apollo → Hunter email reveal (server-side)
+│   │       ├── reveal-email/route.ts       ← Apollo → Hunter domain → Hunter finder → Exa (5-step, server-side)
+│   │       ├── generate-email/route.ts     ← Claude Sonnet 4.6 picks template + fills [Name] only (NEW Apr 11 2026)
+│   │       ├── send-email/route.ts         ← Gmail API send, saves contact_id tracking columns
+│   │       ├── mark-replied/route.ts       ← Sets contacts.email_status = "replied" (NEW Apr 11 2026)
+│   │       ├── check-bounces/route.ts      ← Cron: polls Gmail for bounces every 30 min
+│   │       ├── validate-email/route.ts     ← Generates email permutations from name+domain
 │   │       ├── generate-content/route.ts   ← On-demand: generate_summary extracts candidate_location (uses GEMINI_API_KEY_DASHBOARD)
 │   │       └── chat/route.ts               ← Streaming chat via Anthropic SDK (claude-sonnet-4-6) — uses ANTHROPIC_API_KEY
 │   ├── components/
@@ -159,9 +164,10 @@ job-pipeline/
 │   │   ├── ChatPanel.tsx        ← Reusable chat UI, used in job detail tab
 │   │   └── CopyButton.tsx
 │   └── lib/
-│       ├── profile.ts       ← Master profile — feeds ALL Gemini outputs (pipeline + dashboard)
+│       ├── profile.ts            ← Master profile — feeds ALL Gemini outputs (pipeline + dashboard)
+│       ├── email-templates.ts    ← 3 email templates (T1/T2/T3) + follow-up (NEW Apr 11 2026)
 │       ├── supabase.ts
-│       └── types.ts
+│       └── types.ts              ← Contact interface includes per-contact email tracking fields
 │
 ├── scripts/
 │   └── backfill_candidate_location.py  ← One-off: adds candidate_location to existing DB records
@@ -200,6 +206,7 @@ Both scrapers use `__NEXT_DATA__` SSR. Do not add RSS sources to Track A — the
 
 ### 5. Dedup logic is critical
 `pipeline/dedup/matcher.py` uses fuzzy matching (RapidFuzz, threshold=85). Don't change the threshold without testing.
+Domain tiebreaker added (Apr 11 2026): if BOTH companies have domains and they differ, fuzzy match is skipped even if score > 85. This prevents "Meta" merging with "Metal" (score 88).
 
 ### 6. DB schema
 Never modify Supabase tables directly without a migration file in `supabase/migrations/`. The dashboard reads specific column names — renaming columns will break the UI.
@@ -237,9 +244,10 @@ main.py
   │       → db.insert_funded_lead()
   │
   ├── Track B:
-  │     11 fetchers (web3career, cryptojobslist, cryptocurrencyjobs,
+  │     10 fetchers (web3career, cryptocurrencyjobs,
   │                  dragonfly, arbitrum, hashtagweb3, talentweb3,
   │                  solana_jobs, paradigm, sui_jobs, a16zcrypto)
+  │     [cryptojobslist: permanently dead — Cloudflare blocks CI]
   │       → role keyword filter (must match design titles)
   │       → URL dedup
   │       → experience filter (skip 7+ year roles)
@@ -263,11 +271,20 @@ All enrichment runs for **both Track A and Track B**.
 
 ### Contact finding
 ```
+linkedin_people_finder.py — Exa neural search on linkedin.com/in/* profiles (PRIMARY, multi-contact)
+  Uses domain as search query (more unique than name). Returns up to 5 people.
+  Whole-word token filter (\b) — prevents "meta" matching "metamask"
+  @ OtherCompany filter — rejects people who've moved on
+  ↓ returns empty list
 Apollo /mixed_people/api_search (free, no credits)
   ↓ returns None OR throws error
 Hunter.io domain-search (free, 25 searches/mo)
+  ↓ returns None (new company, not indexed yet)
+people_finder.py — Exa/Tavily fallback (single contact, slug-based name)
 ```
 Hunter fallback triggers on **both** "no result" and Apollo API errors.
+people_finder triggers only when LinkedIn finder, Apollo, AND Hunter all return nothing.
+Hunter domain-search also returns email for free (`_hunter_email`) — stored as `contacts.email` with `email_revealed=True`. No Apollo credits needed.
 
 ### Twitter handle
 ```
@@ -285,11 +302,14 @@ Exa key1 ──(quota error)──▶ Exa key2
 ```
 1. Apollo /people/match (costs 1 credit — needs apollo_person_id)
    ↓ no email or no credits
-2. Hunter email-finder with LinkedIn profile URL
+2. Hunter domain-search — FREE, no credit cost
+   hits domain, returns all known emails, matches by first+last name
+   ↓ name not found in results
+3. Hunter email-finder with LinkedIn profile URL
    ↓ no email
-3. Hunter email-finder with name + domain
+4. Hunter email-finder with name + domain
    ↓ no email
-4. Exa — scan company website pages for email matching domain
+5. Exa — scan company website pages for email matching domain
 ```
 
 ### Gemini content generation
@@ -319,14 +339,60 @@ Gemini key1 ──(daily quota exhausted)──▶ Gemini key2
 
 ### Funded companies table (Track A)
 - Click row → navigates to `/funded/[id]` detail page
-- Detail page: Company Overview tab (type, funding, investors, country) + Chat tab
-- Company description intentionally removed from the table (visible in overview tab)
-- Find Email button on detail page (Apollo → Hunter 4-step chain)
+- Detail page tabs: **Company Overview** | **✉️ Email** | **💬 Chat**
+- On mobile: tabs render first, company/contact info below (intentional order)
+- Tab bar scrolls horizontally on narrow screens
+
+#### Email tab (`/funded/[id]` → Email) — BUILT Apr 11 2026
+- **Multi-contact switcher**: chip row at top when company has 2+ contacts — click chip to switch active contact. Each chip shows color-coded status dot (none/sent/replied/followed_up).
+- **Generate draft button**: calls `/api/generate-email` → Claude Sonnet 4.6 picks template (T1 for Track A funded, T2 for Track B job posting, T3 fallback) and fills [Name] only. Subject + body start empty — user must click Generate (or type manually).
+- **Email Address Finder** (per active contact): generates permutations from contact name + domain
+  - `firstname@`, `firstname.lastname@`, `flastname@`, `f.lastname@`, `firstnamelastname@`, `lastname@`
+  - No ZeroBounce — permutations are best guesses, user picks the most likely one
+  - Status badges: Best guess / Valid / Invalid / Catch-all / Unknown
+  - "Find Email" reveal: 5-step chain (Apollo → Hunter domain-search → Hunter LinkedIn → Hunter name+domain → Exa)
+- **Send button**: fires email via Gmail API (`/api/send-email`)
+  - Updates both `funded_leads` (overall) AND `contacts` (per-contact): `outreach_email`, `email_status="sent"`, `email_sent_at`, `gmail_thread_id`
+- **Mark as replied**: button appears when contact email_status === "sent" — calls `/api/mark-replied`, sets `contacts.email_status = "replied"`
+- **Status banners** (per active contact): replied (emerald) / sent (blue) / followed_up (violet) / bounced (amber) / not_found (red)
+- **Follow-up section**: appears 5 days after send with no reply — editable textarea fallback if no Gemini follow_up_message
+- **Email rules** (enforced by Claude system prompt + hardcoded in templates):
+  - NEVER use em dash (—)
+  - NEVER include numbers
+  - No signature (email client adds it)
+  - Claude fills [Name] only — [product] optional, skipped if not found
+  - Never reference anyone other than Methun
+
+#### Bounce detection (`/api/check-bounces`)
+- GET route — call via cron-job.org every 30 min
+- Polls Gmail for MAILER-DAEMON messages in last 2h
+- Matches `threadId` to `funded_leads.gmail_thread_id`
+- On bounce: increments `email_permutation_idx`, sends next permutation from `contacts.email_permutations`
+- All permutations exhausted → sets `email_status="not_found"`
+
+#### Email DB columns
+**migration: 20260410_email_outreach.sql** (Apr 10 2026):
+`funded_leads`: `outreach_email`, `email_status`, `email_sent_at`, `gmail_thread_id`, `email_permutation_idx`, `follow_up_sent_at`, `credibility_score`, `credibility_reason`
+`contacts`: `email_permutations` (JSONB array of strings)
+
+**migration: 20260411_per_contact_tracking.sql** (Apr 11 2026):
+`contacts`: `email_status` TEXT DEFAULT 'none', `outreach_email` TEXT, `email_sent_at` TIMESTAMPTZ, `gmail_thread_id` TEXT, `follow_up_sent_at` TIMESTAMPTZ
+— email_status values: `none` | `sent` | `replied` | `followed_up`
+
+#### Gmail OAuth (local only)
+- `gmail_token.json` in project root — gitignored, never commit
+- `credentials.json` in project root — gitignored, never commit
+- Vercel env vars: `GMAIL_TOKEN` (full JSON string), `GMAIL_SENDER_EMAIL`
+- Re-run `python3 scripts/gmail_auth.py` if token ever stops working
+
+#### Email templates (BUILT Apr 11 2026)
+- `dashboard/lib/email-templates.ts` — T1 (Track A funded: "saw you raised"), T2 (Track B job posting: "want me to send some work?"), T3 (fallback cold outreach)
+- `/api/generate-email` — Claude Sonnet 4.6 auto-picks template by track + personalizes. Returns `{ subject, body, template_used }`
 
 ### Shared
-- "Find Email" button — Apollo credit first, falls back to Hunter (4-step chain)
+- "Find Email" button — 5-step chain: Apollo → Hunter domain-search (free) → Hunter LinkedIn → Hunter name+domain → Exa
 - Twitter icon: blue = high confidence, yellow = unverified
-- Fixed left sidebar: Funded Companies + Job Postings tabs
+- Fixed left sidebar: Funded Companies | Job Postings | Health & Settings
 
 ---
 
@@ -591,6 +657,31 @@ Unit mocks are fine for testing pure logic (dedup fuzzy matching, filter thresho
 
 ---
 
+## Known bugs fixed (Apr 11 2026 — Session 4)
+
+### TypeScript build silently broken — new features never deployed
+**Symptom:** Email templates and generate-email route were built in session 3 but never appeared in production. Dashboard still showed old Gemini-style emails.
+**Root cause:** Missing `track: string | null` field in `FundedLead` TypeScript interface in `dashboard/lib/types.ts`. This caused a TS compile error that silently blocked ALL Vercel deployments since session 3. The build failed but no one noticed because the old build kept serving.
+**Fix:** Added `track: string | null` to `FundedLead`. Also fixed `lead.companies?.name` null check in `funded/[id]/page.tsx`.
+**Lesson:** Always check Vercel deployment logs after a session ends — if the build failed, new code is not live.
+
+### LinkedIn finder false positives — token substring matching
+**Symptom:** Searching for "Darklake" returned Blake Dark, Daroush Lake — surnames matching, not employees.
+**Root cause:** `token in text` does substring matching. "dark" matches inside "darklake.fi", "dark" in "Blake Dark" surname is legitimate but we were also matching non-employees.
+**Fix:** Replaced with `re.search(rf'\b{token}\b', text)` word-boundary matching throughout `_is_current_employee()`.
+
+### LinkedIn finder dropping valid contacts — brittle name regex
+**Symptom:** Benoit Roger (Head of Compliance at Kulipa) was silently dropped — not found despite being a real employee.
+**Root cause:** Name regex `(.+?)(?:\s*\||\s+at\s+)` required ` at ` as terminator. Benoit's title was "Benoit Roger | Head of Compliance @Kulipa - Blockchain / tags" — `@` format has no ` at `, so regex failed. Slug `benoitroger` can't be split into a name.
+**Fix:** Two-step extraction — grab first two capitalised tokens for name (always works), then extract title separately using `\s+[-–]\s+` (space-surrounded dash) as section break, not bare hyphen (which would split "Co-Founder" at the hyphen).
+**Result:** Kulipa now returns 2 contacts (Michael Shynar + Benoit Roger) vs 1 before.
+
+### Dedup false merges for short company names
+**Symptom:** Not observed in production but confirmed by RapidFuzz test: "Meta" vs "Metal" scores 88.9, above our threshold of 85. Would silently merge two different companies.
+**Fix:** Domain tiebreaker in `pipeline/dedup/matcher.py` — if BOTH companies have domains and they differ, skip fuzzy match even if score > threshold.
+
+---
+
 ## Known bugs fixed (Apr 7 2026)
 
 ### hashtagweb3 fetcher broken (site redesigned to Firebase SPA)
@@ -631,7 +722,35 @@ Unit mocks are fine for testing pure logic (dedup fuzzy matching, filter thresho
 
 - Re-add RSS sources to Track A (TechCrunch, EU Startups etc) when ready
 - Salary + visa sponsorship extraction in pipeline Gemini prompt (fields exist in DB, never populated by pipeline — only by on-demand dashboard button)
-- cryptojobslist from CI: currently Cloudflare-blocked from GitHub Actions. Consider proxy or alternative data source if this becomes a problem.
+- cryptojobslist: **permanently dead** — Cloudflare blocks all server/datacenter IPs, RSS also 403. Remove `cryptojobslist_rss.py` from pipeline fetchers list in `main.py` and from Track B sources. Not worth proxy cost.
+- Reply auto-detection: currently manual "Mark as replied". Could poll Gmail thread for non-bounce replies to auto-update status.
+- Remove cryptojobslist from pipeline flow diagram and Track B sources in main.py (currently still referenced in code)
+- Fix Michael Shynar (Kulipa CTO) showing tagline as title — his LinkedIn page title is his bio "Look ma, no bank!" not his job title. Low priority cosmetic issue.
+- ZeroBounce credit optimization: use Hunter domain-search pattern detection first, then only validate 1–2 permutations instead of all 6 (saves ~4 credits per contact)
+
+## Email Outreach Feature — BUILT (Apr 8–11 2026)
+
+Semi-automated cold email outreach for Track A funded companies. Methun manages all emails from personal Gmail. Only manual step = clicking Send.
+
+### What's built
+- `pipeline/enrichment/people_finder.py` — Exa people search fallback when Apollo+Hunter return nothing
+- `pipeline/enrichment/email_permutator.py` — generates permutations, stored as `contacts.email_permutations`
+- Gmail OAuth done — `GMAIL_TOKEN` in Vercel env
+- `/api/send-email` — fires Gmail API, saves thread_id to both `funded_leads` + `contacts`
+- `/api/check-bounces` — cron every 30 min, auto-retry next permutation on bounce
+- `/api/validate-email` — returns permutation list with status badges
+- `/api/reveal-email` — 5-step chain (Apollo → Hunter domain → Hunter LinkedIn → Hunter name+domain → Exa)
+- `/api/generate-email` — Claude Sonnet 4.6 picks template + personalizes, enforces all email rules
+- `/api/mark-replied` — sets contacts.email_status = "replied"
+- `dashboard/lib/email-templates.ts` — T1 (Track A), T2 (Track B), T3 (fallback), follow-up template
+- Full multi-contact email tab UI with per-contact status tracking, mark-replied, generate draft
+
+### Email rules (enforced everywhere — templates + Claude prompt)
+- NEVER use em dash (—)
+- NEVER include numbers
+- No signature — email client handles it
+- Claude fills [Name] only; [product] is optional, skip if not found
+- Never reference anyone other than Methun
 
 ---
 
