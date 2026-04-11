@@ -4,7 +4,8 @@
  * 2. Hunter.io domain-search — free, no credit cost, matches by name
  * 3. Hunter.io email-finder with LinkedIn profile URL (if contact_linkedin_url)
  * 4. Hunter.io email-finder with name + domain
- * 5. Exa — search company website for publicly listed email
+ * 5. Exa — search company website for publicly listed email (needs contact name)
+ * 5b. Exa — domain-wide email scrape (no contact name needed)
  * Keeps all API keys server-side only.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -186,6 +187,41 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       // Exa failed — fall through to not-found
+    }
+  }
+
+  // ── Step 5b: Exa — domain-wide email scrape (no contact name needed) ──────────
+  if (!email && resolvedDomain && process.env.EXA_API_KEY) {
+    try {
+      const exaRes = await fetch("https://api.exa.ai/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": process.env.EXA_API_KEY! },
+        body: JSON.stringify({
+          query: `email contact @${resolvedDomain}`,
+          numResults: 5,
+          includeDomains: [resolvedDomain],
+          contents: { text: { maxCharacters: 3000 } },
+        }),
+      });
+      const exaData = await exaRes.json();
+      const results = exaData?.results || [];
+      const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+      const genericPrefixes = new Set(["noreply", "no-reply", "support", "info", "hello", "contact", "admin", "team", "press", "media", "jobs", "careers", "sales", "legal", "privacy"]);
+      for (const result of results) {
+        const text = (result.text || "") + " " + (result.title || "");
+        const allEmails = [...(text.match(emailRegex) || [])];
+        const candidate = allEmails.find(e =>
+          e.toLowerCase().endsWith(`@${resolvedDomain.toLowerCase()}`) &&
+          !genericPrefixes.has(e.split("@")[0].toLowerCase())
+        );
+        if (candidate) {
+          email = candidate.toLowerCase();
+          source = "exa";
+          break;
+        }
+      }
+    } catch {
+      // Exa domain scrape failed — fall through
     }
   }
 

@@ -2,6 +2,7 @@
 people_finder.py — Founder/CEO name discovery when Apollo and Hunter both return nothing.
 
 Fallback chain:
+  0. Exa team/about page scrape — searches company domain for names near CEO/Founder titles
   1. Exa neural search (linkedin.com/in/ profiles, key rotation key1 → key2)
   2. Tavily search (same query, triggered when Exa finds nothing)
 
@@ -179,6 +180,122 @@ def _tavily_search_people(query: str) -> list[dict]:
         return []
 
 
+# ── Team/About page scrape via Exa (Step 0) ────────────────────────────────────
+
+# Regex to find capitalised First Last name patterns near a founder title keyword.
+# Matches "John Smith" / "Jane Doe" — two-word capitalised sequences.
+_NAME_RE = re.compile(r'\b([A-Z][a-z]{1,20})\s+([A-Z][a-z]{1,20})\b')
+
+# Common words that look capitalised but are NOT person names — skip these.
+_NON_NAMES = {
+    "About", "Team", "Company", "Products", "Services", "Contact", "Press",
+    "Blog", "News", "Privacy", "Terms", "Policy", "About Us", "Our Team",
+    "Read More", "Learn More", "View All", "Sign Up", "Log In",
+    "New York", "San Francisco", "Los Angeles", "United States",
+}
+
+def _extract_name_near_title(text: str) -> tuple[str, str] | None:
+    """
+    Scan text for a person name appearing near a founder/CEO title keyword.
+    Returns (name, title) if found, or None.
+    Only returns a name if we're confident — name must appear within 80 chars
+    of a recognised title keyword.
+    """
+    # Find all title keyword positions
+    for title_match in _FOUNDER_TITLES.finditer(text):
+        title_str = title_match.group(0).title()
+        title_start = title_match.start()
+        # Look in a window of 80 chars before and after the title
+        window_start = max(0, title_start - 80)
+        window_end   = min(len(text), title_match.end() + 80)
+        window       = text[window_start:window_end]
+
+        for name_match in _NAME_RE.finditer(window):
+            first, last = name_match.group(1), name_match.group(2)
+            candidate = f"{first} {last}"
+            # Skip non-name phrases
+            if first in _NON_NAMES or last in _NON_NAMES or candidate in _NON_NAMES:
+                continue
+            # Skip very short last names that look like initials
+            if len(last) < 2:
+                continue
+            return candidate, title_str
+
+    return None
+
+
+def _exa_team_page_scrape(company_name: str, domain: str) -> dict | None:
+    """
+    Search for the company's own team/about page via Exa and extract a founder name.
+    Uses key1 → key2 rotation. Returns {name, title, linkedin_url: None} or None.
+    """
+    keys = [k for k in (EXA_API_KEY, EXA_API_KEY_2) if k]
+    if not keys:
+        return None
+
+    team_queries = [
+        f"site:{domain} team founders",
+        f"site:{domain} about",
+        f'"{company_name}" founder CEO site:{domain}',
+    ]
+
+    for query in team_queries:
+        payload = {
+            "query":          query,
+            "type":           "neural",
+            "numResults":     3,
+            "includeDomains": [domain],
+            "contents":       {"text": {"maxCharacters": 2000}},
+        }
+
+        for i, key in enumerate(keys):
+            try:
+                resp = requests.post(
+                    _EXA_URL,
+                    json=payload,
+                    headers={"x-api-key": key, "Content-Type": "application/json"},
+                    timeout=HTTP_TIMEOUT,
+                )
+                if resp.status_code in (429, 402):
+                    print(f"[Exa team_scrape] Key {i+1} quota hit — rotating")
+                    tracker.record_fallback(f"exa_key{i+1}", f"exa_key{i+2}", "quota", "team_page_scrape")
+                    tracker.record_key("exa", f"key{i+2}")
+                    continue
+                resp.raise_for_status()
+                tracker.record_call("exa")
+                results = resp.json().get("results") or []
+
+                for item in results:
+                    if isinstance(item, dict):
+                        text = (item.get("text") or "") + " " + (item.get("title") or "")
+                    else:
+                        text = (getattr(item, "text", "") or "") + " " + (getattr(item, "title", "") or "")
+
+                    found = _extract_name_near_title(text)
+                    if found:
+                        name, title = found
+                        print(f"[people_finder] Team page scrape found: {name} ({title}) from {domain}")
+                        return {
+                            "name":        name,
+                            "title":       title,
+                            "linkedin_url": None,
+                        }
+                # No match in this query — try next query
+                break  # Don't retry same query with key2 unless quota error
+            except Exception as e:
+                err = str(e).lower()
+                is_quota = any(kw in err for kw in ("quota", "rate", "429", "402", "limit", "exceeded"))
+                if is_quota and i + 1 < len(keys):
+                    print(f"[Exa team_scrape] Key {i+1} error ({e}) — rotating")
+                    tracker.record_fallback(f"exa_key{i+1}", f"exa_key{i+2}", "quota", "team_page_scrape")
+                    tracker.record_key("exa", f"key{i+2}")
+                    continue
+                print(f"[Exa team_scrape] Error: {e}")
+                break  # Hard failure — try next query
+
+    return None
+
+
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 def find_person(company_name: str, domain: str) -> dict | None:
@@ -186,6 +303,7 @@ def find_person(company_name: str, domain: str) -> dict | None:
     Discover a founder/CEO name for a company when Apollo and Hunter both fail.
 
     Steps:
+      0. Exa team/about page scrape — searches company domain pages for name near title
       1. Exa neural search on linkedin.com/in/ (key1 → key2 on quota)
       2. Tavily search on linkedin.com/in/ (if Exa returns nothing)
 
@@ -196,9 +314,16 @@ def find_person(company_name: str, domain: str) -> dict | None:
     The returned dict is compatible with contact_data in main.py —
     no apollo_person_id, no org_* keys.
     """
+    # ── Step 0: Exa team/about page scrape ────────────────────────────────────
+    if domain:
+        team_result = _exa_team_page_scrape(company_name, domain)
+        if team_result:
+            return team_result
+
     query = f"founder CEO {company_name} site:linkedin.com"
 
     # ── Step 1: Exa ───────────────────────────────────────────────────────────
+    tracker.record_fallback("exa_team_scrape", "exa_linkedin", "no_results", "people_finder")
     exa_results = _exa_search_people(query)
     if exa_results:
         result = _extract_from_results(exa_results)

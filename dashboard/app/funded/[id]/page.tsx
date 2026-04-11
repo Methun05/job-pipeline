@@ -91,6 +91,9 @@ export default function FundedDetailPage() {
   const [manualSaving, setManualSaving]   = useState(false);
   const [manualSaved, setManualSaved]     = useState(false);
 
+  // Manual contact name input (used when pipeline found no contact)
+  const [manualContactName, setManualContactName] = useState("");
+
   // Follow-up body (editable when no Gemini message)
   const [followUpBody, setFollowUpBody]   = useState("");
 
@@ -224,16 +227,19 @@ export default function FundedDetailPage() {
 
   async function findPermutations() {
     const activeContact = allContacts.find(c => c.id === selectedContactId) ?? lead?.contacts;
-    if (!activeContact) return;
+    const nameToUse = activeContact?.name || manualContactName.trim();
+    if (!nameToUse) return;
     setPermLoading(true);
     setPermError(null);
     const domain = lead?.companies?.domain || lead?.companies?.website?.replace(/^https?:\/\//, "").split("/")[0] || null;
     if (!domain) { setPermError("No company domain found."); setPermLoading(false); return; }
     try {
+      const body: Record<string, string> = { contact_name: nameToUse, domain };
+      if (activeContact?.id) body.contact_id = activeContact.id;
       const res = await fetch("/api/validate-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_id: activeContact.id, contact_name: activeContact.name, domain }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -807,7 +813,7 @@ export default function FundedDetailPage() {
                         </div>
                         <button
                           onClick={findPermutations}
-                          disabled={permLoading || !activeContact}
+                          disabled={permLoading || (!activeContact && !manualContactName.trim())}
                           className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors whitespace-nowrap"
                         >
                           {permLoading ? "Finding…" : "Find Addresses"}
@@ -855,11 +861,28 @@ export default function FundedDetailPage() {
                       )}
 
                       {permutations.length === 0 && !permLoading && !permError && (
-                        <p className="px-4 py-4 text-xs text-zinc-400 dark:text-zinc-500">
-                          {activeContact
-                            ? `Will generate patterns for ${activeContact.name} @ ${lead.companies?.domain || "company domain"}`
-                            : "No contact found for this company."}
-                        </p>
+                        <div className="px-4 py-4">
+                          {activeContact ? (
+                            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                              Will generate patterns for {activeContact.name} @ {lead.companies?.domain || "company domain"}
+                            </p>
+                          ) : (
+                            <div>
+                              <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-3">No contact found for this company.</p>
+                              <label className="block text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-1.5">
+                                Know who to reach? Enter their name
+                              </label>
+                              <input
+                                type="text"
+                                value={manualContactName}
+                                onChange={e => setManualContactName(e.target.value)}
+                                onKeyDown={e => e.key === "Enter" && manualContactName.trim() && findPermutations()}
+                                placeholder="e.g. John Smith"
+                                className="w-full px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                              />
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       {/* Manual email entry */}
