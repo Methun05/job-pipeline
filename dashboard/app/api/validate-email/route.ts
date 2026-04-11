@@ -37,9 +37,13 @@ export type PermutationResult = {
   sub_status: string | null;
 };
 
+// ZeroBounce v2 status values — spamtrap/abuse/do_not_mail mean "never email", treat as invalid
+const ZB_INVALID_STATUSES = new Set(["spamtrap", "abuse", "do_not_mail"]);
+
 async function validateWithZeroBounce(email: string, apiKey: string): Promise<Pick<PermutationResult, "status" | "sub_status">> {
   try {
     const url = `https://api.zerobounce.net/v2/validate?api_key=${apiKey}&email=${encodeURIComponent(email)}&ip_address=`;
+    console.log(`[zerobounce] validating ${email} (1 credit used)`);
     const res  = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     const data = await res.json();
 
@@ -48,9 +52,19 @@ async function validateWithZeroBounce(email: string, apiKey: string): Promise<Pi
       return { status: "unknown", sub_status: data.error };
     }
 
-    const status = data.status as PermutationResult["status"];
+    const rawStatus: string = data.status ?? "";
+
+    // spamtrap / abuse / do_not_mail → treat as invalid (never email these)
+    if (ZB_INVALID_STATUSES.has(rawStatus)) {
+      return { status: "invalid", sub_status: data.sub_status ?? rawStatus };
+    }
+
+    const status = (["valid", "invalid", "catch-all", "unknown"].includes(rawStatus)
+      ? rawStatus
+      : "unknown") as PermutationResult["status"];
+
     return {
-      status:     ["valid", "invalid", "catch-all", "unknown"].includes(status) ? status : "unknown",
+      status,
       sub_status: data.sub_status ?? null,
     };
   } catch (e: any) {
