@@ -9,6 +9,7 @@ import type { FundedLead, FundedStatus, EmailStatus, Contact } from "@/lib/types
 import { Button, Textarea } from "@/components/ui";
 import CopyButton from "@/components/CopyButton";
 import { SOURCE_LABELS } from "@/components/FundedCompanyCard";
+import { FOLLOW_UP_TEMPLATE } from "@/lib/email-templates";
 
 const TYPE_COLORS: Record<string, string> = {
   "Consumer App":       "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
@@ -95,7 +96,10 @@ export default function FundedDetailPage() {
   const [manualContactName, setManualContactName] = useState("");
 
   // Follow-up body (editable when no Gemini message)
-  const [followUpBody, setFollowUpBody]   = useState("");
+
+  // Sent history: which item has follow-up open + per-item editable text
+  const [followUpOpenId, setFollowUpOpenId]     = useState<string | null>(null);
+  const [followUpTexts, setFollowUpTexts]       = useState<Record<string, string>>({});
 
   // Generate with Claude state
   const [generating, setGenerating]       = useState(false);
@@ -759,37 +763,107 @@ export default function FundedDetailPage() {
                       </div>
                     )}
 
-                    {/* Per-contact status banner */}
-                    {contactEmailStatus === "replied" && (
-                      <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-                        <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">They replied!</p>
-                          <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">Mark this lead as connected or move it forward.</p>
+                    {/* Sent history list */}
+                    {(() => {
+                      const sentContacts = allContacts.filter(c =>
+                        ["sent","followed_up","bounced","replied"].includes((c as any).email_status || "")
+                      );
+                      const sentItems = sentContacts.length > 0
+                        ? sentContacts.map(c => ({
+                            id:          c.id,
+                            name:        c.name || "Unknown",
+                            email:       (c as any).outreach_email || c.email || "",
+                            sentAt:      (c as any).email_sent_at || null,
+                            followUpAt:  (c as any).follow_up_sent_at || null,
+                            status:      (c as any).email_status || "sent",
+                          }))
+                        : lead.outreach_email
+                          ? [{ id: lead.id, name: activeContact?.name || "Unknown", email: lead.outreach_email, sentAt: lead.email_sent_at || null, followUpAt: (lead as any).follow_up_sent_at || null, status: lead.email_status || "sent" }]
+                          : [];
+
+                      if (sentItems.length === 0) return null;
+
+                      return (
+                        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                          <div className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-700">
+                            <p className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Sent outreach</p>
+                          </div>
+                          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {sentItems.map(item => {
+                              const daysSince = item.sentAt ? Math.floor((Date.now() - new Date(item.sentAt).getTime()) / 86400000) : 0;
+                              const followReadyIn = Math.max(0, 5 - daysSince);
+                              const isOpen = followUpOpenId === item.id;
+                              const itemFollowUpText = followUpTexts[item.id] ?? FOLLOW_UP_TEMPLATE.replace("[Name]", item.name.split(" ")[0] || "there");
+                              const statusColors: Record<string, string> = {
+                                sent:        "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+                                followed_up: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
+                                bounced:     "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+                                replied:     "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+                              };
+                              const statusLabel: Record<string, string> = { sent: "sent", followed_up: "followed up", bounced: "bounced", replied: "replied!" };
+                              return (
+                                <div key={item.id}>
+                                  <div className="flex items-center justify-between px-4 py-3 gap-3">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{item.name}</span>
+                                        <span className="text-xs text-zinc-400 dark:text-zinc-500 font-mono truncate">{item.email}</span>
+                                        {item.sentAt && <span className="text-[11px] text-zinc-400 dark:text-zinc-600">{format(new Date(item.sentAt), "MMM d")}</span>}
+                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${statusColors[item.status] ?? ""}`}>{statusLabel[item.status] ?? item.status}</span>
+                                      </div>
+                                    </div>
+                                    <div className="shrink-0">
+                                      {item.status === "sent" && followReadyIn === 0 && (
+                                        <button
+                                          onClick={() => setFollowUpOpenId(isOpen ? null : item.id)}
+                                          className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+                                        >
+                                          {isOpen ? "Cancel" : "Follow up"}
+                                        </button>
+                                      )}
+                                      {item.status === "sent" && followReadyIn > 0 && (
+                                        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">in {followReadyIn}d</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {isOpen && (
+                                    <div className="px-4 pb-4 space-y-3">
+                                      <textarea
+                                        value={itemFollowUpText}
+                                        onChange={e => setFollowUpTexts(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                        rows={5}
+                                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-violet-500 resize-none font-mono leading-relaxed"
+                                      />
+                                      <button
+                                        onClick={async () => {
+                                          setSendLoading(true); setSendError(null);
+                                          try {
+                                            const res = await fetch("/api/send-email", {
+                                              method: "POST", headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({ lead_id: lead.id, contact_id: item.id !== lead.id ? item.id : null, to: item.email, subject: `Re: this email will take you 30 seconds to read`, body: itemFollowUpText }),
+                                            });
+                                            const data = await res.json();
+                                            if (data.error) throw new Error(data.error);
+                                            setAllContacts(prev => prev.map(c => c.id === item.id ? { ...c, email_status: "followed_up", follow_up_sent_at: new Date().toISOString() } as any : c));
+                                            setLead(prev => prev ? { ...prev, email_status: "followed_up" } : prev);
+                                            setFollowUpOpenId(null);
+                                          } catch (e: any) { setSendError(e.message); }
+                                          finally { setSendLoading(false); }
+                                        }}
+                                        disabled={sendLoading || !itemFollowUpText.trim()}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                      >
+                                        <Send className="w-3.5 h-3.5" /> Send Follow-up
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {contactEmailStatus === "sent" && (
-                      <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                        <CheckCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Email sent to {activeContact?.name?.split(" ")[0]}</p>
-                          <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-0.5">
-                            {contactEmailSentAt && format(new Date(contactEmailSentAt), "MMM d, h:mm a")}
-                            {daysLeft > 0 ? ` — follow-up in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}` : " — follow-up ready"}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    {contactEmailStatus === "followed_up" && (
-                      <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800">
-                        <Clock className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-violet-700 dark:text-violet-300">Follow-up sent</p>
-                          {contactFollowUpSentAt && <p className="text-xs text-violet-600/70 dark:text-violet-400/70 mt-0.5">{format(new Date(contactFollowUpSentAt), "MMM d, h:mm a")}</p>}
-                        </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                     {lead.email_status === "bounced" && (
                       <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                         <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -1029,72 +1103,6 @@ export default function FundedDetailPage() {
                       </button>
                     </div>
 
-                    {/* Follow-up — per contact, unlocks 5 days after send */}
-                    {contactEmailStatus === "sent" && (() => {
-                      const followUpText = lead.follow_up_message || followUpBody;
-                      return (
-                        <div className="border-t border-zinc-100 dark:border-zinc-800 pt-5">
-                          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                            <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Follow-up</p>
-                            {daysLeft > 0
-                              ? <span className="text-[11px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">Unlocks in {daysLeft} day{daysLeft !== 1 ? "s" : ""}</span>
-                              : <span className="text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full font-medium">Ready to send</span>
-                            }
-                          </div>
-                          {lead.follow_up_message ? (
-                            <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed mb-4 whitespace-pre-wrap bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-700 font-mono">
-                              {lead.follow_up_message}
-                            </p>
-                          ) : (
-                            <div className="mb-4">
-                              <textarea
-                                value={followUpBody}
-                                onChange={e => setFollowUpBody(e.target.value)}
-                                rows={5}
-                                placeholder={"Write your follow-up here.\n\nKeep it short — 2-3 sentences max."}
-                                className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-violet-500 resize-none font-mono leading-relaxed"
-                              />
-                            </div>
-                          )}
-                          <button
-                            onClick={async () => {
-                              if (daysLeft > 0 || !followUpText || !activeContact) return;
-                              setSendLoading(true);
-                              setSendError(null);
-                              try {
-                                const res = await fetch("/api/send-email", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({
-                                    lead_id:    lead.id,
-                                    contact_id: activeContact.id,
-                                    to:         emailTo,
-                                    subject:    `Re: ${emailSubject}`,
-                                    body:       followUpText,
-                                    is_followup: true,
-                                  }),
-                                });
-                                const data = await res.json();
-                                if (data.error) throw new Error(data.error);
-                                setLead(prev => prev ? { ...prev, email_status: "followed_up", follow_up_sent_at: new Date().toISOString() } : prev);
-                                setAllContacts(prev => prev.map(c => c.id === activeContact.id
-                                  ? { ...c, email_status: "followed_up", follow_up_sent_at: new Date().toISOString() }
-                                  : c
-                                ));
-                              } catch (e: any) {
-                                setSendError(e.message);
-                              } finally {
-                                setSendLoading(false);
-                              }
-                            }}
-                            disabled={sendLoading || daysLeft > 0 || !followUpText}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-300 dark:border-blue-700 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            <Send className="w-3.5 h-3.5" /> Send Follow-up
-                          </button>
-                        </div>
-                      );
-                    })()}
 
                   </div>
                 );
