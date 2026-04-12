@@ -12,7 +12,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     subject: "this email will take you 30 seconds to read",
     body: `Hi [Name],
 
-product designer, 5 years on web3 UX and currently at Rampnow — KYC flows, onramp, offramp, activation drop-offs, the stuff that breaks when you start to scale.
+product designer, 5 years on web3 UX and currently at Rampnow - KYC flows, onramp, offramp, activation drop-offs, the stuff that breaks when you start to scale.
 
 saw you raised.
 
@@ -27,7 +27,7 @@ ps: don't want to hear from me ever again? no worries, my therapist says I need 
     subject: "this email will take you 30 seconds to read",
     body: `Hi [Name],
 
-product designer, 5 years on web3 UX and currently at Rampnow — KYC flows, onramp, offramp, activation drop-offs, the stuff that breaks when you start to scale.
+product designer, 5 years on web3 UX and currently at Rampnow - KYC flows, onramp, offramp, activation drop-offs, the stuff that breaks when you start to scale.
 
 saw the opening.
 
@@ -42,7 +42,7 @@ ps: don't want to hear from me ever again? no worries, my therapist says I need 
     subject: "this email will take you 30 seconds to read",
     body: `Hi [Name],
 
-product designer, 5 years on web3 UX and currently at Rampnow — KYC flows, onramp, offramp, activation drop-offs, the stuff that breaks when you start to scale.
+product designer, 5 years on web3 UX and currently at Rampnow - KYC flows, onramp, offramp, activation drop-offs, the stuff that breaks when you start to scale.
 
 Methun
 https://methun.design
