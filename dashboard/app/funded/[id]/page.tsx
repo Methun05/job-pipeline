@@ -227,7 +227,8 @@ export default function FundedDetailPage() {
 
   async function findPermutations() {
     const activeContact = allContacts.find(c => c.id === selectedContactId) ?? lead?.contacts;
-    const nameToUse = activeContact?.name || manualContactName.trim();
+    // Manual name overrides the pipeline-found contact (lets user target a different person)
+    const nameToUse = manualContactName.trim() || activeContact?.name || "";
     if (!nameToUse) return;
     setPermLoading(true);
     setPermError(null);
@@ -256,6 +257,11 @@ export default function FundedDetailPage() {
   async function saveManualEmail() {
     const activeContact = allContacts.find(c => c.id === selectedContactId) ?? lead?.contacts;
     if (!manualEmail || !activeContact) return;
+    // Validate it's actually an email, not a name
+    if (!manualEmail.includes("@") || !manualEmail.includes(".")) {
+      setManualEmail("");
+      return;
+    }
     setManualSaving(true);
     await supabase.from("contacts").update({
       email:             manualEmail,
@@ -864,11 +870,26 @@ export default function FundedDetailPage() {
                       )}
 
                       {permutations.length === 0 && !permLoading && !permError && (
-                        <div className="px-4 py-4">
+                        <div className="px-4 py-4 space-y-3">
                           {activeContact ? (
-                            <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                              Will generate patterns for {activeContact.name} @ {lead.companies?.domain || "company domain"}
-                            </p>
+                            <>
+                              <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                                Will generate patterns for <span className="text-zinc-300">{manualContactName.trim() || activeContact.name}</span> @ {lead.companies?.domain || "company domain"}
+                              </p>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-1.5">
+                                  Different person? Enter their name
+                                </label>
+                                <input
+                                  type="text"
+                                  value={manualContactName}
+                                  onChange={e => setManualContactName(e.target.value)}
+                                  onKeyDown={e => e.key === "Enter" && findPermutations()}
+                                  placeholder={`e.g. Serge Kuznetsov`}
+                                  className="w-full px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                />
+                              </div>
+                            </>
                           ) : (
                             <div>
                               <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-3">No contact found for this company.</p>
