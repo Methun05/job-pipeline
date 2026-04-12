@@ -14,7 +14,11 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
 
 product designer, 5 years on web3 UX and currently at Rampnow - KYC flows, onramp, offramp, activation drop-offs. the stuff that breaks when you start to scale.
 
-https://methun.design`,
+https://methun.design
+
+ps: no reply is fine. I've survived three crypto winters. I can handle this :)
+
+Methun`,
   },
   {
     id: "t2",
@@ -24,9 +28,11 @@ https://methun.design`,
 
 product designer, 5 years on web3 UX and currently at Rampnow - KYC flows, onramp, offramp, activation drop-offs. the stuff that breaks when you start to scale.
 
-saw the opening. want me to send some work?
+saw the opening. want me to send some work? https://methun.design
 
-https://methun.design`,
+ps: no reply is fine. I've survived three crypto winters. I can handle this :)
+
+Methun`,
   },
   {
     id: "t3",
@@ -36,7 +42,11 @@ https://methun.design`,
 
 product designer, 5 years on web3 UX and currently at Rampnow - KYC flows, onramp, offramp, activation drop-offs. the stuff that breaks when you start to scale.
 
-https://methun.design`,
+https://methun.design
+
+ps: no reply is fine. I've survived three crypto winters. I can handle this :)
+
+Methun`,
   },
 ];
 
@@ -44,4 +54,6 @@ export const FOLLOW_UP_TEMPLATE = `Hey [Name],
 
 just bumping this in case it got buried. happy to send one specific piece of work if that's easier.
 
-https://methun.design`;
+https://methun.design
+
+Methun`;
