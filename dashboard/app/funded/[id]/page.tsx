@@ -811,13 +811,16 @@ export default function FundedDetailPage() {
                             Generated from name + domain. Pick one and send.
                           </p>
                         </div>
-                        <button
-                          onClick={findPermutations}
-                          disabled={permLoading || (!activeContact && !manualContactName.trim())}
-                          className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors whitespace-nowrap"
-                        >
-                          {permLoading ? "Finding…" : "Find Addresses"}
-                        </button>
+                        {/* Only show header button when there's a known contact — otherwise button lives next to name input */}
+                        {activeContact && (
+                          <button
+                            onClick={findPermutations}
+                            disabled={permLoading}
+                            className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                          >
+                            {permLoading ? "Finding…" : "Find Addresses"}
+                          </button>
+                        )}
                       </div>
 
                       {permError && <p className="px-4 py-3 text-xs text-red-500">{permError}</p>}
@@ -872,14 +875,23 @@ export default function FundedDetailPage() {
                               <label className="block text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-1.5">
                                 Know who to reach? Enter their name
                               </label>
-                              <input
-                                type="text"
-                                value={manualContactName}
-                                onChange={e => setManualContactName(e.target.value)}
-                                onKeyDown={e => e.key === "Enter" && manualContactName.trim() && findPermutations()}
-                                placeholder="e.g. John Smith"
-                                className="w-full px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                              />
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={manualContactName}
+                                  onChange={e => setManualContactName(e.target.value)}
+                                  onKeyDown={e => e.key === "Enter" && manualContactName.trim() && findPermutations()}
+                                  placeholder="e.g. John Smith"
+                                  className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                />
+                                <button
+                                  onClick={findPermutations}
+                                  disabled={permLoading || !manualContactName.trim()}
+                                  className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                                >
+                                  {permLoading ? "Finding…" : "Find Addresses"}
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
