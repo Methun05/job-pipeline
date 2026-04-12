@@ -6,10 +6,11 @@ Execution order:
   1. Start pipeline_run record
   2. Check Apollo credits
   3. Track A: fetch → dedup → enrich → save
-  4. Track B: fetch → filter → dedup → enrich → save
-  5. Generate follow-up messages for 7-day-old records
-  6. Update Apollo credit balance
-  7. Complete pipeline_run record
+  4. Catch-up contact search: LinkedIn finder for leads with no contact (up to 10)
+  5. Track B: fetch → filter → dedup → enrich → save
+  6. Generate follow-up messages for 7-day-old records
+  7. Update Apollo credit balance
+  8. Complete pipeline_run record
 """
 import sys
 import json
@@ -37,7 +38,7 @@ from pipeline.config import (
 from pipeline.fetchers import (
     cryptorank_scraper,
     dropstab_scraper,
-    web3career, cryptojobslist_rss, cryptocurrencyjobs_rss,
+    web3career, cryptocurrencyjobs_rss,
     dragonfly_jobs, arbitrum_jobs, hashtagweb3, talentweb3, solana_jobs,
     paradigm_jobs, sui_jobs, a16zcrypto_jobs,
 )
@@ -384,7 +385,7 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
             # Step 1: Try LinkedIn people finder (returns multiple contacts)
             linkedin_contacts = []
             if domain or name:
-                co_linkedin_url = company_data.get("linkedin_url") or None
+                co_linkedin_url = job.get("linkedin_url") or None
                 linkedin_contacts = linkedin_find_people(name, domain, linkedin_url=co_linkedin_url)
 
             if linkedin_contacts:
@@ -569,6 +570,59 @@ def process_job_posting(job: dict, existing_companies: list[dict], stats: Stats)
     print(f"[Track B] Saved: {job['job_title']} at {name}")
 
 
+# ── Catch-up contact search ───────────────────────────────────────────────────
+
+def catchup_contact_search(stats: Stats):
+    """LinkedIn contact search for funded leads that previously had no contact found.
+    Runs daily on up to 10 leads — catches companies processed before the LinkedIn finder existed.
+    Only runs LinkedIn finder (Exa-based); Apollo/Hunter already failed for these and aren't re-tried.
+    """
+    leads = db.get_funded_leads_without_contact(days=45, limit=10)
+    if not leads:
+        print("[Catch-up] No leads needing contact search")
+        return
+
+    print(f"[Catch-up] Searching contacts for {len(leads)} leads with no contact...")
+    found = 0
+    for lead in leads:
+        company_id = lead["company_id"]
+        try:
+            company = db.get_company(company_id)
+            if not company:
+                continue
+            name         = company.get("name", "")
+            domain       = company.get("domain") or normalize_domain(company.get("website") or "")
+            linkedin_url = company.get("linkedin_url")
+            if not name:
+                continue
+
+            linkedin_contacts = linkedin_find_people(name, domain, linkedin_url=linkedin_url)
+            if not linkedin_contacts:
+                continue
+
+            first_contact_id = None
+            for i, contact_data in enumerate(linkedin_contacts):
+                apollo_id = contact_data.get("apollo_person_id")
+                existing_contact = db.get_contact_by_apollo_id(apollo_id) if apollo_id else None
+                if existing_contact:
+                    cid = existing_contact["id"]
+                else:
+                    skip = {k for k in contact_data if k.startswith("org_") or k.startswith("_hunter_")}
+                    contact_insert = {k: v for k, v in contact_data.items() if k not in skip}
+                    cid = db.insert_contact({**contact_insert, "company_id": company_id})
+                if i == 0:
+                    first_contact_id = cid
+
+            if first_contact_id:
+                db.update_funded_lead(lead["id"], {"contact_id": first_contact_id})
+                found += 1
+                print(f"[Catch-up] Found contact for {name}: {linkedin_contacts[0].get('name')}")
+        except Exception as e:
+            stats.add_error("catchup_contact", f"{company_id}: {e}")
+
+    print(f"[Catch-up] Found contacts for {found}/{len(leads)} leads")
+
+
 # ── Follow-up generation ──────────────────────────────────────────────────────
 
 def generate_followups(stats: Stats):
@@ -664,13 +718,15 @@ def main():
         except Exception as e:
             stats.add_error("track_a_process", str(e))
 
+    # ── Catch-up contact search ───────────────────────────────────────────────
+    catchup_contact_search(stats)
+
     # ── Track B ───────────────────────────────────────────────────────────────
     print("[Track B] Starting job postings pipeline...")
     raw_jobs = []
 
     track_b_fetchers = [
         ("web3career",          web3career.fetch),
-        ("cryptojobslist",      cryptojobslist_rss.fetch),
         ("cryptocurrencyjobs",  cryptocurrencyjobs_rss.fetch),
         ("dragonfly",           dragonfly_jobs.fetch),
         ("arbitrum",            arbitrum_jobs.fetch),

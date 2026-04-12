@@ -153,6 +153,19 @@ def insert_funded_lead(data: dict) -> str:
     return res.data[0]["id"]
 
 
+def get_funded_leads_without_contact(days: int = 45, limit: int = 10) -> list[dict]:
+    """Return funded leads with no contact found, within the last N days, for catch-up enrichment."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    res = (get_client().table("funded_leads")
+           .select("id, company_id")
+           .is_("contact_id", "null")
+           .gte("created_at", cutoff)
+           .order("created_at", desc=True)
+           .limit(limit)
+           .execute())
+    return res.data or []
+
+
 def get_funded_leads_needing_followup(days: int = 7) -> list[dict]:
     from datetime import timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
