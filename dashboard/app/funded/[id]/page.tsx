@@ -700,7 +700,8 @@ export default function FundedDetailPage() {
               {/* Email Tab */}
               {activeTab === "email" && (() => {
                 const activeContact = allContacts.find(c => c.id === selectedContactId) ?? lead.contacts ?? null;
-                const contactEmailStatus = (activeContact as any)?.email_status ?? "none";
+                // Fall back to lead.email_status when no contact exists so Send button reflects actual state
+                const contactEmailStatus = (activeContact as any)?.email_status ?? lead.email_status ?? "none";
                 const contactEmailSentAt = (activeContact as any)?.email_sent_at ?? null;
                 const contactFollowUpSentAt = (activeContact as any)?.follow_up_sent_at ?? null;
                 const daysSinceSent = contactEmailSentAt
