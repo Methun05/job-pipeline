@@ -23,7 +23,7 @@ STRICT RULES:
 - Never include numbers
 - Never add a signature or name sign-off at the end
 - [Name]: replace with contact's first name if provided. If unknown, replace with "there"
-- [product]: replace with the company's specific product/app name if known. If product name is unknown, use the company name as the fallback (e.g. "quick thought on Pharos"). Only use bare "quick thought" as subject if you have zero context about the company
+- The subject line is fixed — never change it
 - Do not add any sentence, phrase, or word not present in the original template
 - Return ONLY a raw JSON object — no markdown, no code blocks
 

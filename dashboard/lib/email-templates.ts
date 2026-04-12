@@ -9,44 +9,34 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: "t1",
     track: "A",
-    subject: "quick thought on [product]",
+    subject: "this email will take you 30 seconds to read",
     body: `Hey [Name],
 
-saw you raised - congrats. looks like you're building in a similar space.
+product designer, 5 years on web3 UX and currently at Rampnow - KYC flows, onramp, offramp, activation drop-offs. the stuff that breaks when you start to scale.
 
-I work on onramp UX at Rampnow - mostly around KYC flows, APIs and conversion. curious how you're thinking about onboarding as you scale.
-
-ps: no reply is fine. I've survived three crypto winters. I can handle this :)
-
-methun.design`,
+https://methun.design`,
   },
   {
     id: "t2",
     track: "B",
-    subject: "quick question",
-    body: `Hey [Name]
+    subject: "this email will take you 30 seconds to read",
+    body: `Hey [Name],
 
-product designer at Rampnow. deep in UX - both the partner side and end-user conversion. KYC drop-offs, payment success rates, the flows that make or break activation.
+product designer, 5 years on web3 UX and currently at Rampnow - KYC flows, onramp, offramp, activation drop-offs. the stuff that breaks when you start to scale.
 
-looks like we're solving the same problems from different angles. want me to send some work?
+saw the opening. want me to send some work?
 
-P.s. Don't want to hear from me ever again? No worries, my therapist says I need to work on how I cope with rejection. Just reply and let me know. I'll be alright, I hope.
-
-methun.design`,
+https://methun.design`,
   },
   {
     id: "t3",
     track: "any",
-    subject: "quick thought on [product]",
+    subject: "this email will take you 30 seconds to read",
     body: `Hey [Name],
 
-product designer at Rampnow - working on both partner-side flows and end-user conversion. a lot of it is KYC friction + drop-offs across both layers.
+product designer, 5 years on web3 UX and currently at Rampnow - KYC flows, onramp, offramp, activation drop-offs. the stuff that breaks when you start to scale.
 
-feels like you're dealing with similar stuff!
-
-P.s. Don't want to hear from me ever again? No worries, my therapist says I need to work on how I cope with rejection. Just reply and let me know. I'll be alright, I hope.
-
-methun.design`,
+https://methun.design`,
   },
 ];
 
@@ -54,4 +44,4 @@ export const FOLLOW_UP_TEMPLATE = `Hey [Name],
 
 just bumping this in case it got buried. happy to send one specific piece of work if that's easier.
 
-methun.design`;
+https://methun.design`;
